@@ -47,8 +47,8 @@ def nodeDofs(n: npt.ArrayLike, ndof: int=3) -> npt.NDArray[np.int_]:
 
 @timing(logger)
 @nb.njit(cache=True)
-def emapping(nelx: int, nely: int, nelz: int, nrhos: npt.NDArray[np.float_]) -> \
-        typing.Tuple[npt.NDArray[np.uint64], npt.NDArray[np.float_], npt.NDArray[np.bool_], npt.NDArray[np.bool_]]:
+def emapping(nelx: int, nely: int, nelz: int, nrhos: npt.NDArray[np.float64]) -> \
+        typing.Tuple[npt.NDArray[np.uint64], npt.NDArray[np.float64], npt.NDArray[np.bool_], npt.NDArray[np.bool_]]:
     """ Element/node mapping for a given voxel mesh 
     
     Arguments
@@ -139,8 +139,8 @@ def mesh(sdf: typing.Callable, elementSize: float=1,
          dimensions: npt.ArrayLike=[1, 1, 1], 
          center: npt.ArrayLike=[0, 0, 0],
          filename: typing.Union[None, str, Path]=None) -> \
-         typing.Tuple[npt.NDArray[np.float_], npt.NDArray[np.bool_], npt.NDArray[np.uint64], typing.List[float],
-                      npt.NDArray[np.float_], npt.NDArray[np.bool_]]:
+         typing.Tuple[npt.NDArray[np.float64], npt.NDArray[np.bool_], npt.NDArray[np.uint64], typing.List[float],
+                      npt.NDArray[np.float64], npt.NDArray[np.bool_]]:
     """ Hex mesh sign distance function over a regtangular grid 
     
     Arguments
