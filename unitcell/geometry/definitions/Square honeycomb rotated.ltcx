@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--comment-->
+<graph id="0" name="" units="mm" type="rnd">
+    <nodegroup>
+        <node id="0" x="-0.5" y="-0.5" z="-0.5"/>
+        <node id="1" x="-0.5" y="-0.5" z="0.5"/>
+        <node id="2" x="-0.5" y="0.5" z="-0.5"/>
+        <node id="3" x="-0.5" y="0.5" z="0.5"/>
+        <node id="4" x="0" y="0" z="-0.5"/>
+        <node id="5" x="0" y="0" z="0.5"/>
+        <node id="6" x="0.5" y="-0.5" z="-0.5"/>
+        <node id="7" x="0.5" y="-0.5" z="0.5"/>
+        <node id="8" x="0.5" y="0.5" z="-0.5"/>
+        <node id="9" x="0.5" y="0.5" z="0.5"/>
+    </nodegroup>
+    <facegroup>
+        <face id="0" n1="0" n2="1" n3="5" n4="4"/>
+        <face id="1" n1="2" n2="3" n3="5" n4="4"/>
+        <face id="2" n1="4" n2="6" n3="7" n4="5"/>
+        <face id="3" n1="4" n2="8" n3="9" n4="5"/>
+    </facegroup>
+</graph>

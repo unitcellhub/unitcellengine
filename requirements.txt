@@ -1,0 +1,24 @@
+# matplotlib
+# numpy
+# scipy
+# pandas
+# trimesh
+# netCDF4
+# plotly
+# meshio
+# gmsh
+# numba
+# scikit-image
+# blosc
+# numexpr
+# tables
+# tqdm
+# dill
+# pyamg
+# joblib
+
+vtk
+pyvista
+python-dotenv
+pypardiso
+git+https://github.com/fogleman/sdf@main#egg=sdf

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--comment-->
+<graph id="0" name="" units="mm" type="rnd">
+    <nodegroup>
+        <node id="0" x="-0.5" y="-0.5" z="-0.5"/>
+        <node id="1" x="-0.5" y="-0.5" z="0.5"/>
+        <node id="2" x="-0.5" y="0.5" z="-0.5"/>
+        <node id="3" x="-0.5" y="0.5" z="0.5"/>
+        <node id="4" x="0.5" y="-0.5" z="-0.5"/>
+        <node id="5" x="0.5" y="-0.5" z="0.5"/>
+        <node id="6" x="0.5" y="0.5" z="-0.5"/>
+        <node id="7" x="0.5" y="0.5" z="0.5"/>
+    </nodegroup>
+    <beamgroup>
+        <beam id="0" n1="1" n2="0"/>
+        <beam id="1" n1="2" n2="0"/>
+        <beam id="2" n1="3" n2="1"/>
+        <beam id="3" n1="3" n2="2"/>
+        <beam id="4" n1="4" n2="0"/>
+        <beam id="5" n1="5" n2="1"/>
+        <beam id="6" n1="5" n2="4"/>
+        <beam id="7" n1="6" n2="2"/>
+        <beam id="8" n1="6" n2="4"/>
+        <beam id="9" n1="7" n2="3"/>
+        <beam id="10" n1="7" n2="5"/>
+        <beam id="11" n1="7" n2="6"/>
+    </beamgroup>
+</graph>

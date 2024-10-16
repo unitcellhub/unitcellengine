@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--comment-->
+<graph id="0" name="" units="mm" type="rnd">
+    <nodegroup>
+        <node id="0" x="-0.5" y="-0.5" z="0"/>
+        <node id="1" x="-0.5" y="0" z="-0.5"/>
+        <node id="2" x="-0.5" y="0" z="0"/>
+        <node id="3" x="-0.5" y="0" z="0.5"/>
+        <node id="4" x="-0.5" y="0.5" z="0"/>
+        <node id="5" x="0" y="-0.5" z="-0.5"/>
+        <node id="6" x="0" y="-0.5" z="0"/>
+        <node id="7" x="0" y="-0.5" z="0.5"/>
+        <node id="8" x="0" y="0" z="-0.5"/>
+        <node id="9" x="0" y="0" z="0"/>
+        <node id="10" x="0" y="0" z="0.5"/>
+        <node id="11" x="0" y="0.5" z="-0.5"/>
+        <node id="12" x="0" y="0.5" z="0"/>
+        <node id="13" x="0" y="0.5" z="0.5"/>
+        <node id="14" x="0.5" y="-0.5" z="0"/>
+        <node id="15" x="0.5" y="0" z="-0.5"/>
+        <node id="16" x="0.5" y="0" z="0"/>
+        <node id="17" x="0.5" y="0" z="0.5"/>
+        <node id="18" x="0.5" y="0.5" z="0"/>
+    </nodegroup>
+    <facegroup>
+        <face id="0" n1="0" n2="2" n3="9" n4="6"/>
+        <face id="1" n1="1" n2="2" n3="9" n4="8"/>
+        <face id="2" n1="2" n2="9" n3="10" n4="3"/>
+        <face id="3" n1="2" n2="9" n3="12" n4="4"/>
+        <face id="4" n1="5" n2="8" n3="9" n4="6"/>
+        <face id="5" n1="6" n2="9" n3="10" n4="7"/>
+        <face id="6" n1="6" n2="9" n3="16" n4="14"/>
+        <face id="7" n1="8" n2="9" n3="12" n4="11"/>
+        <face id="8" n1="8" n2="9" n3="16" n4="15"/>
+        <face id="9" n1="9" n2="10" n3="13" n4="12"/>
+        <face id="10" n1="9" n2="10" n3="17" n4="16"/>
+        <face id="11" n1="9" n2="16" n3="18" n4="12"/>
+    </facegroup>
+</graph>

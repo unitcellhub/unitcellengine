@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--comment-->
+<graph id="0" name="" units="mm" type="rnd">
+    <nodegroup>
+        <node id="0" x="0" y="0" z="-0.5"/>
+        <node id="1" x="0" y="0" z="0"/>
+        <node id="2" x="0" y="0" z="0.5"/>
+    </nodegroup>
+    <beamgroup>
+        <beam id="0" n1="1" n2="0"/>
+        <beam id="1" n1="2" n2="1"/>
+    </beamgroup>
+</graph>
