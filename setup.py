@@ -33,7 +33,7 @@ setup(
         "trimesh",
         "pandas",
         "plotly",
-        "meshio==4.3.11",
+        "meshio",
         "gmsh",
         "scikit-image",
         "numexpr",
@@ -48,7 +48,8 @@ setup(
         "pyamg",
         "sdf@git+https://github.com/fogleman/sdf@main#egg=sdf",
         "dill",
-        "scikit-learn",
+        "scikit-image",
         "pyvista",
+        "plotly",
     ],
 )

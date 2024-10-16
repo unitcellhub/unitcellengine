@@ -1,21 +1,22 @@
-# matplotlib
-# numpy
-# scipy
-# pandas
-# trimesh
-# netCDF4
-# plotly
-# meshio
-# gmsh
-# numba
-# scikit-image
-# blosc
-# numexpr
-# tables
-# tqdm
-# dill
-# pyamg
-# joblib
+matplotlib
+mkl-service
+numpy
+scipy
+pandas
+trimesh
+netCDF4
+plotly
+meshio
+gmsh
+numba
+scikit-image
+blosc
+numexpr
+tables
+tqdm
+dill
+pyamg
+joblib
 
 vtk
 pyvista
