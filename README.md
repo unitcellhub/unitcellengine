@@ -13,7 +13,7 @@ If running on a Windows machine, you may sometimes need to first install Microso
 For the current stable release
 
 ```
-pip install git+https://github.jpl.nasa.gov/watkinrt/unitcellengine@release#egg=unitcell
+pip install git+https://github.com/unitcellhub/unitcellengine@main#egg=unitcell
 
 ```
 
@@ -21,7 +21,7 @@ For the current development branch
 
 
 ```
-pip install git+https://github.jpl.nasa.gov/watkinrt/unitcellengine@develop#egg=unitcell
+pip install git+https://github.com/unitcellhub/unitcellengine@develop#egg=unitcell
 
 ```
 
