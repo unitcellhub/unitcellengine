@@ -1,11 +1,14 @@
 *.log
 Database/*
 *.pyc
+dist/
 unitcell.egg*
 *.ipynb_checkpoints*
 *.nbc
 *.nbi
 config.json
+*.lock
+about.py
 
 .venv/*
 
