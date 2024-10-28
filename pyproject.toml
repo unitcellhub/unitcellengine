@@ -1,0 +1,67 @@
+[project]
+name = "unitcellengine"
+description = "Lattice unitcell geometry and analysis framework"
+readme = "README.md"
+requires-python = ">=3.10, <3.12"
+license = {file = "LICENSE"}
+keywords = ["unitcell", "unitcellhub", "lattice", "homogenization", "finite element"]
+authors = [
+    {name = "Ryan Watkins", email = "watkinrt@gmail.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+]
+dependencies = [
+    "dill>=0.3.9",
+    "gmsh>=4.13.1",
+    "mkl-service>=2.4.1",
+    "numba>=0.60.0",
+    "numpy<2.0",
+    "pandas>=2.2.3",
+    "plotly>=5.24.1",
+    "pyamg>=5.2.1",
+    "pypardiso>=0.4.6",
+    "pyvista>=0.44.1",
+    "scikit-image>=0.24.0",
+    "scipy>=1.14.1",
+    "sdf",
+    "tables>=3.10.1",
+    "trimesh>=4.5.1",
+    "vtk>=9.3.1",
+]
+dynamic = [
+    "version",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/unitcellhub/unitcellengine"
+"Bug Reports" = "https://github.com/unitcellhub/unitcellengine/issues"
+
+[tool.uv.sources]
+sdf = { git = "https://github.com/fogleman/sdf", rev = "main" }
+
+# This is needed to properly set the path for the pytest framework
+# https://stackoverflow.com/questions/50155464/using-pytest-with-a-src-layer
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.hatch.version]
+source="vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "about.py"
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+    "pytest>=8.3.3",
+    "python-dotenv>=1.0.1",
+    "tqdm>=4.66.5",
+    "twine>=5.1.1",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+
