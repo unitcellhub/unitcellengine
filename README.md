@@ -1,4 +1,8 @@
 # UnitcellEngine
+
+> [!WARNING]
+> This is alpha software that is in active development and is likely to experience breaking changes.
+
 *UnitcellEngine* is part of the *UnitcellHub* software ecosystem, providing functionality to generate and simulate lattice unitcell geometries.
 Written fully in Python, it brings together state-of-the-art technology like implicit geometry representation, meshless finite element analysis, and homogenization theory, to provide an automated yet robust pipeline.
 
@@ -7,21 +11,13 @@ Written fully in Python, it brings together state-of-the-art technology like imp
 ## Installation
 
 UnitcellEngine only supports Python 3. 
-Due to python version limitations on a few of UnitcellEngine's dependencies (numba in particular), Python 3.10 is the latest version that is supported.
-If running on a Windows machine, you may sometimes need to first install Microsoft Visual C++ for some of the dependencies to install correctly (such as number and scikit-learn). See https://visualstudio.microsoft.com/visual-cpp-build-tools/ for details on how to install the Windows C++ Build Tools; additionally, due to performance limitations of the openblas-based installation of numpy via pip, it is recommended that conda be used to setup the base numpy/scipy environment.
+If running on a Windows machine, you may sometimes need to first install Microsoft Visual C++ for some of the dependencies to install correctly (such as number and scikit-learn). See https://visualstudio.microsoft.com/visual-cpp-build-tools/ for details on how to install the Windows C++ Build Tools; 
+additionally, due to performance limitations of the openblas-based installation of numpy via pip, it is recommended that conda be used to setup the base numpy/scipy environment.
 
 For the current stable release
 
 ```
-pip install git+https://github.com/unitcellhub/unitcellengine@main#egg=unitcell
-
-```
-
-For the current development branch
-
-
-```
-pip install git+https://github.com/unitcellhub/unitcellengine@develop#egg=unitcell
+pip install unitcellengine
 
 ```
 
@@ -32,7 +28,7 @@ The general workflow is to define the unitcell, generate the geometry, generate 
 Each step of the process calculates relevant quantities and stores them in output files that feed into subsequent calculations (for example, a mesh file is required before a homogenization can be run).
 
 ```python
-from unitcell.design import UnitcellDesign, UnitcellDesigns
+from unitcellengine.design import UnitcellDesign, UnitcellDesigns
 import numpy as np
 
 # Set numpy precision to allow for better printout of homogenized matrices
