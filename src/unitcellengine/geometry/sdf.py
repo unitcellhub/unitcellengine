@@ -8,10 +8,10 @@ import sdf
 sys.path.insert(0, tmp)
 from pathlib import Path
 import numpy as np
-from unitcell.geometry import Geometry, DEFAULT_ELEMENT_SIZE, \
+from unitcellengine.geometry import Geometry, DEFAULT_ELEMENT_SIZE, \
                               DEFAULT_THICKNESS, cachedProperty
 import logging
-from unitcell.utilities import timing, Timing, suppressStream
+from unitcellengine.utilities import timing, Timing, suppressStream
 from numpy import sin, cos, pi
 import trimesh
 import json

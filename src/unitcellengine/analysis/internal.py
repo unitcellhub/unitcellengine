@@ -12,12 +12,12 @@ import ctypes
 import numpy as np
 import logging
 from logging.handlers import QueueHandler, QueueListener
-from unitcell.mesh.internal import NODE_EL, nodeDofs, periodic
+from unitcellengine.mesh.internal import NODE_EL, nodeDofs, periodic
 import numpy.typing as npt
 import typing
-from unitcell.utilities import Timing
-import unitcell.analysis.multiprocess as poolglobals
-from unitcell.mesh.internal import convert2pyvista
+from unitcellengine.utilities import Timing
+import unitcellengine.analysis.multiprocess as poolglobals
+from unitcellengine.mesh.internal import convert2pyvista
 import pyvista as pv
 import pyamg
 

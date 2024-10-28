@@ -12,14 +12,14 @@ from pathlib import Path
 import tables
 
 from tables.exceptions import NoSuchNodeError
-import unitcell.geometry.sdf as geometry
-from unitcell.geometry import (DEFAULT_THICKNESS, DEFAULT_ELEMENT_SIZE, 
+import unitcellengine.geometry.sdf as geometry
+from unitcellengine.geometry import (DEFAULT_THICKNESS, DEFAULT_ELEMENT_SIZE, 
                                DEFINITION_FILENAME, PROPERTIES_FILENAME)
-import unitcell.mesh.internal as mesh
-import unitcell.analysis.homogenization as homog
+import unitcellengine.mesh.internal as mesh
+import unitcellengine.analysis.homogenization as homog
 import logging
 import logging.handlers as handlers
-from unitcell.utilities import cachedProperty, timing
+from unitcellengine.utilities import cachedProperty, timing
 import shutil
 import json
 from tables import (IsDescription, Float64Col, StringCol, UInt8Col, 
@@ -1178,7 +1178,7 @@ if __name__ == "__main__":
 
 
 
-    from unitcell.mesh.internal import convert2pyvista
+    from unitcellengine.mesh.internal import convert2pyvista
     vmstress = design.homogenizationElastic.localVMStress(macroStresses)
     cellData = {f'vm{i}': vmstress[:, i] for i in range(vmstress.shape[1])}
     grid = convert2pyvista(design.meshFilename, cellData=cellData) 
@@ -1190,7 +1190,7 @@ if __name__ == "__main__":
     #                         directory=Path(r"F:\Lattice\Database"),
     #                         form='graph')
     
-    # from unitcell.analysis.internal import internal2vtu
+    # from unitcellengine.analysis.internal import internal2vtu
 
     # internal2vtu(design.meshFilename, design.homogenizationElastic._resultfile)
 

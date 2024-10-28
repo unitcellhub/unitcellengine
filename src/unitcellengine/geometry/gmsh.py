@@ -1,8 +1,8 @@
 from pathlib import Path
 import numpy as np
-from unitcell.geometry import Geometry, DEFAULT_THICKNESS
+from unitcellengine.geometry import Geometry, DEFAULT_THICKNESS
 import logging
-from unitcell.utilities import timing, suppressStream
+from unitcellengine.utilities import timing, suppressStream
 import sys
 
 # Temporarily remove the current directly from the search path tl load

@@ -1,4 +1,4 @@
-from unitcell.analysis.internal import homogenization, isotropicC, isotropicK
+from unitcellengine.analysis.internal import homogenization, isotropicC, isotropicK
 import os
 import numpy as np
 import sys
@@ -8,7 +8,7 @@ import subprocess
 import time
 import logging
 import signal
-from unitcell.utilities import timing
+from unitcellengine.utilities import timing
 from scipy import optimize
 import re
 import json

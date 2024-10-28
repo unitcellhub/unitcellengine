@@ -1,5 +1,5 @@
 import unittest
-import unitcell.analysis.homogenization as homog
+import unitcellengine.analysis.homogenization as homog
 from pathlib import Path
 import numpy as np
 import math

@@ -1,10 +1,8 @@
 import json
-import subprocess
 import plotly.graph_objects as go
-import meshio  
 from pathlib import Path
 import logging
-from unitcell.utilities import timing, cachedProperty
+from unitcellengine.utilities import timing, cachedProperty
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 import numpy as np

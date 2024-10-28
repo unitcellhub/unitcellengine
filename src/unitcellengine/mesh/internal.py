@@ -1,7 +1,7 @@
 import numpy as np
 import logging
-from unitcell.utilities import timing, Timing
-from unitcell.geometry.sdf import SDFGeometry
+from unitcellengine.utilities import timing, Timing
+from unitcellengine.geometry.sdf import SDFGeometry
 import numba as nb
 import numpy.typing as npt
 import typing

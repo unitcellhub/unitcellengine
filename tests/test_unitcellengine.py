@@ -1,17 +1,17 @@
 import unittest
-import unitcell
+import unitcellengine
 from pathlib import Path
 import numpy as np
 
 class TestUnitcell(unittest.TestCase):
-    """ Test unitcell definition and quantification """
+    """ Test unitcellengine definition and quantification """
 
     def testMeshConvergence(self):
         """ Verify that default mesh is sufficiently converged """
 
         # Create default geometry to pull out the reference point
         defaultElementSize = 0.25
-        design = unitcell.UnitcellDesign('Octet', 1, 1, 1)
+        design = unitcellengine.UnitcellDesign('Octet', 1, 1, 1)
         design.generateGeometry(reuse=False)
         design.generateMesh(elementSize=defaultElementSize,
                             reuse=False)
