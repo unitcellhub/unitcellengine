@@ -13,6 +13,16 @@
             "env": {"PYTHONPATH": "${workspaceFolder}"},
             "cwd": "${workspaceFolder}",
             "justMyCode": true 
-        }    
+        },    
+        {
+            "name": "(1) Windows .venv Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${relativeFile}",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+        }
     ]
 }
