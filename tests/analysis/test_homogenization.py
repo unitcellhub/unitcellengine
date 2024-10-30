@@ -19,6 +19,7 @@ class TestElasticHomogenization(object):
 
         # Create homogenization instance, run simulations, and process
         h = self.module(mesh, E=1, nu=0.3)
+        h.clear() # Make sure to clear old results files
         h.appliedStrain = 0.0005
         self.assertTrue(h.run(reuse=False, blocking=True))
 
@@ -89,7 +90,9 @@ class TestElasticHomogenization(object):
         mesh =  basename / Path('resources/octetPatil').with_suffix(self.format)
 
         # Create homogenization instance, run simulations, and process
+        
         h = self.module(mesh, E=1, nu=0.35)
+        h.clear() # Make sure to clear old results files
         self.assertTrue(h.run(reuse=False, blocking=True))
 
         # Make sure all the runs completed correctly
@@ -172,6 +175,7 @@ class TestElasticHomogenization(object):
 
         # Create homogenization instance, run simulations, and process
         E = 1
+        
         job = self.module(mesh, E=E, nu=0.35)
         job.run(reuse=False, blocking=True, nprocessors=8)
         
@@ -246,7 +250,9 @@ class TestElasticHomogenization(object):
         mesh =  basename / Path('resources/fullyDense').with_suffix(self.format)
 
         # Create homogenization instance
+        
         h = self.module(mesh, E=1, nu=0.3)
+        h.clear() # Make sure to clear old results files
         
         # Overide homogenization matrix with local elasticity matrix
         h.CH = h.C
@@ -264,7 +270,9 @@ class TestElasticHomogenization(object):
         # Define an arbitrary mesh file (which isn't actually used)
         basename = Path(__file__).parent
         mesh =  basename / Path('resources/fullyDense').with_suffix(self.format)
+        
         h = self.module(mesh, E=1, nu=0.3)
+        h.clear() # Make sure to clear old results files
 
         # Create an isotropic material and check against
         # Compare against expected constitutive behavior for a fully
@@ -400,7 +408,9 @@ class TestConductanceHomogenization(object):
         mesh =  basename / Path('resources/fullyDense').with_suffix(self.format)
 
         # Create homogenization instance, run simulations, and process
+        
         h = self.module(mesh, k=1)
+        h.clear() # Make sure to clear old results files
         self.assertTrue(h.run(reuse=False, blocking=True))
 
         # Make sure all the runs completed correctly
@@ -450,6 +460,7 @@ class TestConductanceHomogenization(object):
 
             # Create homogenization instance, run simulations, and process
             h = self.module(mesh, k=1)
+            h.clear() # Make sure to clear old results files
             self.assertTrue(h.run(reuse=False, blocking=True))
             
             # Post process the results

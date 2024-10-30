@@ -1,5 +1,5 @@
 import unittest
-import unitcellengine
+from unitcellengine.design import UnitcellDesign
 from pathlib import Path
 import numpy as np
 
