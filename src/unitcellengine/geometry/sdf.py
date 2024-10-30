@@ -16,16 +16,9 @@ from numpy import sin, cos, pi
 import trimesh
 import json
 import pyvista as pv
-import vtk
 import json
 import re
 from skimage import measure
-from scipy import spatial
-from numba import njit
-from multiprocessing.pool import ThreadPool
-import multiprocessing
-import itertools
-from functools import partial
 
 # Set the default PyVista setup to have a transparent background
 pv.global_theme.transparent_background = True
