@@ -44,7 +44,7 @@ sdf = { git = "https://github.com/fogleman/sdf", rev = "main" }
 pythonpath = ["src"]
 
 [tool.bumpversion]
-current_version = "0.0.5-rc0"
+current_version = "0.0.5"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
     (?P<minor>0|[1-9]\\d*)\\.
