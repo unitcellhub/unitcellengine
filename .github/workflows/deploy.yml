@@ -54,6 +54,11 @@ jobs:
       # - name: Install the project from lock file 
       #   run: uv sync --frozen --dev --all-extras
 
+      - name: Bump the version number if a tag isn't specified
+        # This help differentiate development builds on Test PyPi
+        if: github.event_name != 'tag'
+        run: uvx run bump-my-version bump patch
+
       - name: Build source and wheels
         run: uv build
 
