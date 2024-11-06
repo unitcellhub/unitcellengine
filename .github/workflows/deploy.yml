@@ -51,9 +51,6 @@ jobs:
         with:
           python-version-file: ".python-version"
 
-      # - name: Install the project from lock file 
-      #   run: uv sync --frozen --dev --all-extras
-
       - name: Bump the version number to dev if a tag isn't specified
         # This help differentiate development builds on Test PyPi
         if: github.event_name != 'tag'
@@ -63,7 +60,7 @@ jobs:
           # systems.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -a -m "Dummy checking"
+          git commit --all --allow-empty --message "Dummy checking"
           uv tool run bump-my-version bump patch
           uv tool run bump-my-version show-bump
 
