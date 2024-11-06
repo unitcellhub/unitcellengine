@@ -21,12 +21,6 @@ jobs:
   build:
     name: Build wheels
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      # This is used to complete the identity challenge
-      # with sigstore/fulcio when running outside of PRs.
-      id-token: write
 
     steps:
       - name: Checkout repository
@@ -68,6 +62,12 @@ jobs:
       - name: Build source and wheels
         run: uv build
 
+  deploy:
+    name: Deploy wheels
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to enable write permissions
+    steps:
       - name: Create tagged release 
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
