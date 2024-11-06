@@ -1,7 +1,7 @@
 [project]
 name = "unitcellengine"
 description = "Lattice unitcell geometry and analysis framework"
-version = "0.0.8-dev1"
+version = "0.0.8-rc0"
 readme = "README.md"
 requires-python = ">=3.10, <3.12"
 license = {file = "LICENSE"}
@@ -44,7 +44,7 @@ sdf = { git = "https://github.com/fogleman/sdf", rev = "main" }
 pythonpath = ["src"]
 
 [tool.bumpversion]
-current_version = "0.0.8-dev1"
+current_version = "0.0.8-rc0"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
     (?P<minor>0|[1-9]\\d*)\\.
