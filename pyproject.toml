@@ -1,6 +1,7 @@
 [project]
 name = "unitcellengine"
 description = "Lattice unitcell geometry and analysis framework"
+version = "0.0.4"
 readme = "README.md"
 requires-python = ">=3.10, <3.12"
 license = {file = "LICENSE"}
@@ -29,9 +30,6 @@ dependencies = [
     "trimesh>=4.5.1",
     "vtk>=9.3.1",
 ]
-dynamic = [
-    "version",
-]
 
 [project.urls]
 "Homepage" = "https://github.com/unitcellhub/unitcellengine"
@@ -45,11 +43,33 @@ sdf = { git = "https://github.com/fogleman/sdf", rev = "main" }
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 
-[tool.hatch.version]
-source="vcs"
+[tool.bumpversion]
+current_version = "0.0.4"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+tag = true
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+allow_dirty = false
+commit = true
+message = "Bump version: {current_version} → {new_version}"
+pre_commit_hooks = ["uv sync", "git add uv.lock"]
+commit_args = ""
 
-[tool.hatch.build.hooks.vcs]
-version-file = "about.py"
+[[tool.bumpversion.files]]
+filename = "src/unitcellengine/__init__.py"
+search = "version = \"{current_version}\""
+replace =  "version = \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = "version = \"{current_version}\""
+replace = "version = \"{new_version}\""
 
 [dependency-groups]
 dev = [
@@ -61,7 +81,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 
