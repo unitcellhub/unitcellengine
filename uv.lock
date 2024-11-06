@@ -2455,7 +2455,7 @@ wheels = [
 
 [[package]]
 name = "unitcellengine"
-version = "0.0.9rc0"
+version = "0.0.9"
 source = { editable = "." }
 dependencies = [
     { name = "dill" },
