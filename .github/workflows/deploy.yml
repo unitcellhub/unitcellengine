@@ -53,7 +53,7 @@ jobs:
 
       - name: Bump the version number to dev if a tag isn't specified
         # This help differentiate development builds on Test PyPi
-        if: github.event_name != 'tag'
+        if: ${{ ! startsWith(github.ref, 'refs/tags/v') }}
         run: |
           # We need to first check in any files that are shown as modified,
           # which can happen due to line ending differences between operating
@@ -68,18 +68,18 @@ jobs:
         run: uv build
 
       - name: Create tagged release 
-        if: github.event_name == 'tag'
+        if: 
         uses: marvinpinto/action-automatic-releases@latest #@TODO A specific version should be specified here, rather than latest.
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
 
       - name: Publish to PyPi (production)
-        if: github.event_name == 'tag'
+        if: startsWith(github.ref, 'refs/tags/v') 
         run: uv publish --token ${{ secrets.PYPI_TOKEN }}
 
       - name: Publish to TestPyPi (development)
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && ! startsWith(github.ref, 'refs/tags/v')
         run: uv publish --publish-url https://test.pypi.org/legacy/ --token ${{ secrets.TESTPYPI_TOKEN }}
 
 
