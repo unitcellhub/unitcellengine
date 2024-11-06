@@ -70,6 +70,6 @@ jobs:
 
       - name: Publish to TestPyPi (development)
         if: github.event_name == 'push'
-        run: uv publish --publish-url https://test.pypi.org/simple/ --token ${{ secrets.TESTPYPI_TOKEN }}
+        run: uv publish --publish-url https://test.pypi.org/legacy/ --token ${{ secrets.TESTPYPI_TOKEN }}
 
 
