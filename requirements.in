@@ -1,0 +1,15 @@
+mkl-service
+numpy<2.1
+scipy
+trimesh
+plotly
+gmsh
+numba
+scikit-image
+tables
+dill
+pyamg
+vtk
+pyvista
+pypardiso
+git+https://github.com/fogleman/sdf@main#egg=sdf
