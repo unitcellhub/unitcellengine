@@ -25,7 +25,7 @@ If applicable, add screenshots to help explain your problem.
 
 **Desktop (please complete the following information):**
  - OS:
- - Browser:
+ - Python version:
 
 **Additional context**
 Add any other context about the problem here.
