@@ -25,7 +25,7 @@ dependencies = [
     "pyvista>=0.44.1",
     "scikit-image>=0.24.0",
     "scipy>=1.14.1",
-    "sdf",
+    "sdf @ git+https://github.com/fogleman/sdf@main",
     "tables>=3.10.1",
     "trimesh>=4.5.1",
     "vtk>=9.3.1",
@@ -35,8 +35,8 @@ dependencies = [
 "Homepage" = "https://github.com/unitcellhub/unitcellengine"
 "Bug Reports" = "https://github.com/unitcellhub/unitcellengine/issues"
 
-[tool.uv.sources]
-sdf = { git = "https://github.com/fogleman/sdf", rev = "main" }
+[tool.hatch.metadata]
+allow-direct-references = true
 
 # This is needed to properly set the path for the pytest framework
 # https://stackoverflow.com/questions/50155464/using-pytest-with-a-src-layer
