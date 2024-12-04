@@ -1,0 +1,3 @@
+[submodule "src/sdf"]
+	path = src/sdf
+	url = https://github.com/fogleman/sdf
