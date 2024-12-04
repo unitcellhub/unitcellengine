@@ -25,7 +25,7 @@ dependencies = [
     "pyvista>=0.44.1",
     "scikit-image>=0.24.0",
     "scipy>=1.14.1",
-    "sdf @ git+https://github.com/fogleman/sdf@main",
+    # "sdf @ git+https://github.com/fogleman/sdf@main",
     "tables>=3.10.1",
     "trimesh>=4.5.1",
     "vtk>=9.3.1",
