@@ -1,25 +1,28 @@
-import unittest
-import unitcellengine.analysis.homogenization as homog
-from pathlib import Path
-import numpy as np
 import math
+import unittest
+from pathlib import Path
+
+import numpy as np
+
+import unitcellengine.analysis.homogenization as homog
+
 
 class TestElasticHomogenization(object):
-    """ Test elastic homogenization method """
+    """Test elastic homogenization method"""
 
     module = None
     format = None
 
     def testFullyDense(self):
-        """ Compare fully dense homogenization with elasticity """
+        """Compare fully dense homogenization with elasticity"""
 
         # Define mesh file
         basename = Path(__file__).parent
-        mesh =  basename / Path('resources/fullyDense').with_suffix(self.format)
+        mesh = basename / Path("resources/fullyDense").with_suffix(self.format)
 
         # Create homogenization instance, run simulations, and process
         h = self.module(mesh, E=1, nu=0.3)
-        h.clear() # Make sure to clear old results files
+        h.cleanup()  # Make sure to cleanup old results files
         h.appliedStrain = 0.0005
         self.assertTrue(h.run(reuse=False, blocking=True))
 
@@ -34,29 +37,30 @@ class TestElasticHomogenization(object):
         # dense elastic material.
         E = h.E
         nu = h.nu
-        lam = E*nu/((1+nu)*(1-2*nu))
-        mu = 0.5*E/(1+nu)
+        lam = E * nu / ((1 + nu) * (1 - 2 * nu))
+        mu = 0.5 * E / (1 + nu)
         exp = np.zeros((6, 6))
-        exp[0, 0] = exp[1, 1] = exp[2, 2] = lam+2*mu
-        exp[3, 3] = exp[4, 4] = exp[5, 5] = mu*2
+        exp[0, 0] = exp[1, 1] = exp[2, 2] = lam + 2 * mu
+        exp[3, 3] = exp[4, 4] = exp[5, 5] = mu * 2
         exp[0, 1] = exp[0, 2] = exp[1, 2] = lam
         exp[1, 0] = exp[2, 0] = exp[2, 1] = lam
-        
-        self.assertTrue(np.allclose(CH, exp, rtol=1e-2, atol=E*1e-4))
+
+        self.assertTrue(np.allclose(CH, exp, rtol=1e-2, atol=E * 1e-4))
         self.assertTrue(math.isclose(h.anisotropyIndex, 0, abs_tol=1e-4))
 
         # Check that mean strains corresponds to uniform strain
         # throughout
-        for averageStrain in [np.array([0.1, 0, 0, 0, 0, 0]), 
-                             np.array([0, 0, 0, 0, 0.1, 0])]:
+        for averageStrain in [
+            np.array([0.1, 0, 0, 0, 0, 0]),
+            np.array([0, 0, 0, 0, 0.1, 0]),
+        ]:
             strains = h.localStrain(averageStrain)
-            expStrain = np.tile(averageStrain.reshape(-1, 1), 
-                                (1, strains.shape[1]))
+            expStrain = np.tile(averageStrain.reshape(-1, 1), (1, strains.shape[1]))
             self.assertTrue(np.allclose(strains, expStrain))
 
     def testOctet(self):
-        """ Compare octet with values from the literature 
-        
+        """Compare octet with values from the literature
+
         Ref: https://asa.scitation.org/doi/10.1121/1.5091690
 
         Vxx = sqrt(C11/rho)
@@ -87,12 +91,12 @@ class TestElasticHomogenization(object):
 
         # Define mesh file
         basename = Path(__file__).parent
-        mesh =  basename / Path('resources/octetPatil').with_suffix(self.format)
+        mesh = basename / Path("resources/octetPatil").with_suffix(self.format)
 
         # Create homogenization instance, run simulations, and process
-        
+
         h = self.module(mesh, E=1, nu=0.35)
-        h.clear() # Make sure to clear old results files
+        h.cleanup()  # Make sure to cleanup old results files
         self.assertTrue(h.run(reuse=False, blocking=True))
 
         # Make sure all the runs completed correctly
@@ -106,14 +110,14 @@ class TestElasticHomogenization(object):
         # dense elastic material.
         exp = np.zeros((6, 6))
         exp[0, 0] = exp[1, 1] = exp[2, 2] = 0.31742
-        exp[3, 3] = exp[4, 4] = exp[5, 5] = 0.12014*2
+        exp[3, 3] = exp[4, 4] = exp[5, 5] = 0.12014 * 2
         exp[0, 1] = exp[0, 2] = exp[1, 2] = 0.14456
         exp[1, 0] = exp[2, 0] = exp[2, 1] = 0.14456
-        
-        self.assertTrue(np.allclose(CH, exp, rtol=1e-3, atol=5e-2)) 
+
+        self.assertTrue(np.allclose(CH, exp, rtol=1e-3, atol=5e-2))
 
     def testHexHoneycomb(self):
-        """ Validate honeycomb stiffnesses and stresses 
+        r""" Validate honeycomb stiffnesses and stresses 
         
         Validate against Gibson, et al "The Mechanics of two-dimensional
         cellular materials". Note that the analytical calculations are
@@ -171,21 +175,21 @@ class TestElasticHomogenization(object):
 
         # Define mesh file
         basename = Path(__file__).parent
-        mesh =  basename / Path('resources/hexHoneycomb_5x5x1').with_suffix(self.format)
+        mesh = basename / Path("resources/hexHoneycomb_5x5x1").with_suffix(self.format)
 
         # Create homogenization instance, run simulations, and process
         E = 1
-        
+
         job = self.module(mesh, E=E, nu=0.35)
-        job.run(reuse=False, blocking=True, nprocessors=8)
-        
+        job.cleanup()
+        job.run(reuse=False, blocking=True)
 
         # Post process the results and pull out relevant results
         job.process(check=True, reuse=False, rtol=1e-2)
-        vm11 = job.result['amplification']['vm11']
-        vm22 = job.result['amplification']['vm22']
-        vm33 = job.result['amplification']['vm33']
-        
+        vm11 = job.result["amplification"]["vm11"]
+        vm22 = job.result["amplification"]["vm22"]
+        vm33 = job.result["amplification"]["vm33"]
+
         E1 = job.Ei([1, 0, 0])
         E2 = job.Ei([0, 1, 0])
         E3 = job.Ei([0, 0, 1])
@@ -195,13 +199,13 @@ class TestElasticHomogenization(object):
         # L = 2 l cosθ
         # W = 2 h + 2 l sinθ
         t = 3
-        L = 5*10
-        H = 1*10
+        L = 5 * 10
+        H = 1 * 10
         rel = 0.161085
         b = H
         theta = 0.280781
-        I = t**3*b/12.
-        ell = L/2./np.cos(theta)
+        I = t**3 * b / 12.0
+        ell = L / 2.0 / np.cos(theta)
         h = 17.79
 
         s = np.sin(theta)
@@ -209,29 +213,29 @@ class TestElasticHomogenization(object):
 
         # Loading in the X direction
         # Expected peak stress is Mc/I + P cosθ/(bt)
-        sig1 = 2.   # Note, that paper definition is half the value of ours
-        P = sig1*(h+ell*s)*b
-        M = 0.5*P*ell*s
-        vm11_expected = M*t/2/I + P*c/(b*t)
+        sig1 = 2.0  # Note, that paper definition is half the value of ours
+        P = sig1 * (h + ell * s) * b
+        M = 0.5 * P * ell * s
+        vm11_expected = M * t / 2 / I + P * c / (b * t)
         # print(vm11, vm11_expected)
 
         # Loading in the Y direction
         # Expected peak stress is Mc/I + P sinθ/(bt)
         sig2 = 2
-        P = sig2*ell*b*c
-        M = 0.5*P*ell*c
-        vm22_expected = M*t/2/I + P*s/(b*t)
+        P = sig2 * ell * b * c
+        M = 0.5 * P * ell * c
+        vm22_expected = M * t / 2 / I + P * s / (b * t)
         # print(vm22, vm22_expected)
 
         # Loading in the Z direction
         # Expected to just be the ratio of the exposed surface area
-        vm33_expected = 1/rel
+        vm33_expected = 1 / rel
 
         # Expected elastic properties
-        E1_expected = 12*I*c*E/((h+ell*s)*b*ell**2*s**2)
-        E2_expected = 12*I*E*(h + ell*s)/(b*ell**4*c)
+        E1_expected = 12 * I * c * E / ((h + ell * s) * b * ell**2 * s**2)
+        E2_expected = 12 * I * E * (h + ell * s) / (b * ell**4 * c)
         E3_expected = rel
-        nu12_expected = ell*c**2/(h+ell*s)/s
+        nu12_expected = ell * c**2 / (h + ell * s) / s
 
         # Compare and assert
         self.assertTrue(math.isclose(E1, E1_expected, rel_tol=0.2))
@@ -243,17 +247,17 @@ class TestElasticHomogenization(object):
         self.assertTrue(math.isclose(vm33, vm33_expected, rel_tol=0.1))
 
     def testAnisotropyIndex(self):
-        """ Validate anisotropy index calculation """
+        """Validate anisotropy index calculation"""
 
         # Define mesh file
         basename = Path(__file__).parent
-        mesh =  basename / Path('resources/fullyDense').with_suffix(self.format)
+        mesh = basename / Path("resources/fullyDense").with_suffix(self.format)
 
         # Create homogenization instance
-        
+
         h = self.module(mesh, E=1, nu=0.3)
-        h.clear() # Make sure to clear old results files
-        
+        h.cleanup()  # Make sure to cleanup old results files
+
         # Overide homogenization matrix with local elasticity matrix
         h.CH = h.C
 
@@ -265,41 +269,38 @@ class TestElasticHomogenization(object):
         self.assertTrue(math.isclose(AU, 0, abs_tol=1e-6))
 
     def testEngineeringConstants(self):
-        """ Test the engineering constants (E, K, G, nu) calculations """
+        """Test the engineering constants (E, K, G, nu) calculations"""
 
         # Define an arbitrary mesh file (which isn't actually used)
         basename = Path(__file__).parent
-        mesh =  basename / Path('resources/fullyDense').with_suffix(self.format)
-        
+        mesh = basename / Path("resources/fullyDense").with_suffix(self.format)
+
         h = self.module(mesh, E=1, nu=0.3)
-        h.clear() # Make sure to clear old results files
+        h.cleanup()  # Make sure to cleanup old results files
 
         # Create an isotropic material and check against
         # Compare against expected constitutive behavior for a fully
         # dense elastic material.
         E = h.E
         nu = h.nu
-        G = E/(2*(1+nu))
-        K = E/(3*(1-2*nu))
-        lam = E*nu/((1+nu)*(1-2*nu))
-        mu = 0.5*E/(1+nu)
+        G = E / (2 * (1 + nu))
+        K = E / (3 * (1 - 2 * nu))
+        lam = E * nu / ((1 + nu) * (1 - 2 * nu))
+        mu = 0.5 * E / (1 + nu)
         exp = np.zeros((6, 6))
-        exp[0, 0] = exp[1, 1] = exp[2, 2] = lam+2*mu
-        exp[3, 3] = exp[4, 4] = exp[5, 5] = mu*2
+        exp[0, 0] = exp[1, 1] = exp[2, 2] = lam + 2 * mu
+        exp[3, 3] = exp[4, 4] = exp[5, 5] = mu * 2
         exp[0, 1] = exp[0, 2] = exp[1, 2] = lam
         exp[1, 0] = exp[2, 0] = exp[2, 1] = lam
         h.CH = exp
 
         # Run through a range of orientations and compare against
         # expected
-        PHI, THETA = np.meshgrid(np.linspace(0, np.pi, 4), 
-                                 np.linspace(0, 2*np.pi, 4))
+        PHI, THETA = np.meshgrid(np.linspace(0, np.pi, 4), np.linspace(0, 2 * np.pi, 4))
         c = np.cos
         s = np.sin
         for phi, theta in zip(PHI.flatten(), THETA.flatten()):
-            d = [s(phi)*c(theta), 
-                 s(phi)*s(theta),
-                 c(phi)]
+            d = [s(phi) * c(theta), s(phi) * s(theta), c(phi)]
             # Calculate single direction constants
             Ec = h.Ei(d)
             Kc = h.Ki(d)
@@ -307,10 +308,12 @@ class TestElasticHomogenization(object):
             self.assertTrue(math.isclose(Kc, K, abs_tol=1e-6))
 
             # Calculate multi direction constants
-            for psi in np.linspace(0, np.pi*2, 4):
-                n = [s(theta)*s(psi) - c(phi)*c(theta)*c(psi), 
-                    -c(theta)*s(psi) - c(phi)*s(theta)*c(psi),
-                     s(phi)*c(psi)]
+            for psi in np.linspace(0, np.pi * 2, 4):
+                n = [
+                    s(theta) * s(psi) - c(phi) * c(theta) * c(psi),
+                    -c(theta) * s(psi) - c(phi) * s(theta) * c(psi),
+                    s(phi) * c(psi),
+                ]
 
                 # Skip colinear vectors
                 if np.isclose(np.linalg.norm(np.cross(n, d)), 0):
@@ -320,7 +323,7 @@ class TestElasticHomogenization(object):
                 nuc = h.nuij(d, n)
                 self.assertTrue(math.isclose(Gc, G, abs_tol=1e-6))
                 self.assertTrue(math.isclose(nuc, nu, abs_tol=1e-6))
-    
+
         # Compare against results from Nordmann, J., Aßmus, M., &
         # Altenbach, H. (2018). Visualising elastic anisotropy:
         # theoretical background and computational implementation.
@@ -330,87 +333,95 @@ class TestElasticHomogenization(object):
         # validation numbers are pulled from a colorbar.
         exp = np.zeros((6, 6))
         exp[0, 0] = exp[1, 1] = exp[2, 2] = 165.7
-        exp[3, 3] = exp[4, 4] = exp[5, 5] = 79.6*2
+        exp[3, 3] = exp[4, 4] = exp[5, 5] = 79.6 * 2
         exp[0, 1] = exp[0, 2] = exp[1, 2] = 63.9
         exp[1, 0] = exp[2, 0] = exp[2, 1] = 63.9
-        h.CH = exp 
+        h.CH = exp
 
         # From Figure 2
         Eext = h.Eext()
         self.assertTrue(math.isclose(h.Ei([1, 0, 0]), 135, abs_tol=5))
         self.assertTrue(math.isclose(h.Ei([1, 1, 1]), 185, abs_tol=5))
-        self.assertTrue(math.isclose(Eext['min']['value'], 135, abs_tol=5))
-        self.assertTrue(math.isclose(Eext['max']['value'], 185, abs_tol=5))
-        
+        self.assertTrue(math.isclose(Eext["min"]["value"], 135, abs_tol=5))
+        self.assertTrue(math.isclose(Eext["max"]["value"], 185, abs_tol=5))
+
         # From Figure 3
         Kext = h.Kext()
         self.assertTrue(math.isclose(h.Ki([1, 0, 0]), 97.83, abs_tol=1e-2))
         self.assertTrue(math.isclose(h.Ki([0, 1, 0]), 97.83, abs_tol=1e-2))
         self.assertTrue(math.isclose(h.Ki([1, 1, 0]), 97.83, abs_tol=1e-2))
         self.assertTrue(math.isclose(h.Ki([1, 1, 1]), 97.83, abs_tol=1e-2))
-        self.assertTrue(math.isclose(Kext['min']['value'], 97.83, abs_tol=5))
-        self.assertTrue(math.isclose(Kext['max']['value'], 97.83, abs_tol=5))
-        
+        self.assertTrue(math.isclose(Kext["min"]["value"], 97.83, abs_tol=5))
+        self.assertTrue(math.isclose(Kext["max"]["value"], 97.83, abs_tol=5))
+
         # From Figure 4
         # Note: T rotates vector v about axis r by theta
         Gext = h.Gext()
-        T = lambda v, r, theta: (1-c(theta))*(np.inner(v, r))*r +\
-                                  c(theta)*v + \
-                                  s(theta)*np.cross(r, v)
-        self.assertTrue(math.isclose(h.Gij([1, 0, 0], [0, 0, 1]), 77.5, 
-                                     abs_tol=2.5))
-        self.assertTrue(math.isclose(h.Gij([1, 0, 0], [0, 1, 0]), 77.5, 
-                                     abs_tol=2.5))
+        T = (
+            lambda v, r, theta: (1 - c(theta)) * (np.inner(v, r)) * r
+            + c(theta) * v
+            + s(theta) * np.cross(r, v)
+        )
+        self.assertTrue(math.isclose(h.Gij([1, 0, 0], [0, 0, 1]), 77.5, abs_tol=2.5))
+        self.assertTrue(math.isclose(h.Gij([1, 0, 0], [0, 1, 0]), 77.5, abs_tol=2.5))
         d = np.array([1, 1, 0])
         n = np.array([0, 0, 1])
-        minG = min([h.Gij(d, T(n, d, theta)) for theta in np.linspace(0, 2*np.pi, 100)])
+        minG = min(
+            [h.Gij(d, T(n, d, theta)) for theta in np.linspace(0, 2 * np.pi, 100)]
+        )
         self.assertTrue(math.isclose(minG, 50, abs_tol=2.5))
-        self.assertTrue(math.isclose(h.Gij([1, 1, 1], [0, 1, -1]), 60, 
-                                     abs_tol=2.5))
-        self.assertTrue(math.isclose(h.Gij([1, 1, 1], [0, -1, 1]), 60, 
-                                     abs_tol=2.5))
-        self.assertTrue(math.isclose(Gext['min']['value'], 52, abs_tol=5))
-        self.assertTrue(math.isclose(Gext['max']['value'], 77.5, abs_tol=5))
+        self.assertTrue(math.isclose(h.Gij([1, 1, 1], [0, 1, -1]), 60, abs_tol=2.5))
+        self.assertTrue(math.isclose(h.Gij([1, 1, 1], [0, -1, 1]), 60, abs_tol=2.5))
+        self.assertTrue(math.isclose(Gext["min"]["value"], 52, abs_tol=5))
+        self.assertTrue(math.isclose(Gext["max"]["value"], 77.5, abs_tol=5))
 
         # From Figure 5
         def nuext(d, n0, fun):
-            """ Find max nu for given direction """
+            """Find max nu for given direction"""
             d = np.array(d)
             n0 = np.array(n0)
-            out = fun([h.nuij(d, T(n0, d, theta)) for 
-                                theta in np.linspace(0, 2*np.pi, 100)])
+            out = fun(
+                [h.nuij(d, T(n0, d, theta)) for theta in np.linspace(0, 2 * np.pi, 100)]
+            )
             return out
-        self.assertTrue(math.isclose(nuext([0, 1, 1], [1, 0, 0], max), 0.36, 
-                                     abs_tol=0.025))
-        self.assertTrue(math.isclose(nuext([0, 1, 1], [1, 0, 0], min), 0.08, 
-                                     abs_tol=0.025))
-        self.assertTrue(math.isclose(nuext([0, 1, 0], [1, 0, 0], min), 0.27, 
-                                     abs_tol=0.025))
-        self.assertTrue(math.isclose(nuext([0, 0, 1], [1, 0, 0], min), 0.27, 
-                                     abs_tol=0.025))
-        self.assertTrue(math.isclose(nuext([1, 1, 1], [1, -1, 0], max), 0.17, 
-                                     abs_tol=0.025))
+
+        self.assertTrue(
+            math.isclose(nuext([0, 1, 1], [1, 0, 0], max), 0.36, abs_tol=0.025)
+        )
+        self.assertTrue(
+            math.isclose(nuext([0, 1, 1], [1, 0, 0], min), 0.08, abs_tol=0.025)
+        )
+        self.assertTrue(
+            math.isclose(nuext([0, 1, 0], [1, 0, 0], min), 0.27, abs_tol=0.025)
+        )
+        self.assertTrue(
+            math.isclose(nuext([0, 0, 1], [1, 0, 0], min), 0.27, abs_tol=0.025)
+        )
+        self.assertTrue(
+            math.isclose(nuext([1, 1, 1], [1, -1, 0], max), 0.17, abs_tol=0.025)
+        )
         nuext = h.nuext()
-        self.assertTrue(math.isclose(nuext['min']['value'], 0.08, abs_tol=0.025))
-        self.assertTrue(math.isclose(nuext['max']['value'], 0.36, abs_tol=0.025))
+        self.assertTrue(math.isclose(nuext["min"]["value"], 0.08, abs_tol=0.025))
+        self.assertTrue(math.isclose(nuext["max"]["value"], 0.36, abs_tol=0.025))
+
 
 class TestConductanceHomogenization(object):
-    """ Test elastic homogenization method """
+    """Test elastic homogenization method"""
 
     module = None
     format = None
 
     def testFullyDense(self):
-        """ Compare fully dense homogenization with conductance """
+        """Compare fully dense homogenization with conductance"""
 
         # Define mesh file
         basename = Path(__file__).parent
-        mesh =  basename / Path('resources/fullyDense').with_suffix(self.format)
+        mesh = basename / Path("resources/fullyDense").with_suffix(self.format)
 
         # Create homogenization instance, run simulations, and process
-        
+
         h = self.module(mesh, k=1)
-        h.clear() # Make sure to clear old results files
+        h.cleanup()  # Make sure to cleanup old results files
         self.assertTrue(h.run(reuse=False, blocking=True))
 
         # Make sure all the runs completed correctly
@@ -422,22 +433,22 @@ class TestConductanceHomogenization(object):
 
         # Compare against expected constitutive behavior for a fully
         # dense elastic material.
-        exp = np.eye(3)*h.k
-        
-        self.assertTrue(np.allclose(CH, exp, rtol=1e-2, atol=h.k*1e-4))
+        exp = np.eye(3) * h.k
+
+        self.assertTrue(np.allclose(CH, exp, rtol=1e-2, atol=h.k * 1e-4))
 
         # # Check that mean strains corresponds to uniform strain
         # # throughout
-        # for averageStrain in [np.array([0.1, 0, 0, 0, 0, 0]), 
+        # for averageStrain in [np.array([0.1, 0, 0, 0, 0, 0]),
         #                      np.array([0, 0, 0, 0, 0.1, 0])]:
         #     strains = h.localStrain(averageStrain)
-        #     expStrain = np.tile(averageStrain.reshape(-1, 1), 
+        #     expStrain = np.tile(averageStrain.reshape(-1, 1),
         #                         (1, strains.shape[1]))
         #     self.assertTrue(np.allclose(strains, expStrain))
 
     def testTPMS(self):
-        """ Compare gyroid with values from the literature 
-        
+        """Compare gyroid with values from the literature
+
         Ref: http://dx.doi.org/10.1016/j.commatsci.2014.12.039
 
         Effective conductances pulled from Figure 9.
@@ -452,27 +463,27 @@ class TestConductanceHomogenization(object):
 
         # Define mesh file
         basename = Path(__file__).parent
-        
-        exps = {"halesGyroid_0_24": 0.168,
-                "halesSchwarz_0_23": 0.159}
+
+        exps = {"halesGyroid_0_24": 0.168, "halesSchwarz_0_23": 0.159}
         for resource, exp in exps.items():
-            mesh =  basename / Path(f'resources/{resource}').with_suffix(self.format)
+            mesh = basename / Path(f"resources/{resource}").with_suffix(self.format)
 
             # Create homogenization instance, run simulations, and process
             h = self.module(mesh, k=1)
-            h.clear() # Make sure to clear old results files
+            h.cleanup()  # Make sure to cleanup old results files
             self.assertTrue(h.run(reuse=False, blocking=True))
-            
+
             # Post process the results
             h.process(check=True, reuse=False, rtol=1e-2)
             CH = h.CH
 
-            # Compare against expected constitutive behavior from 
+            # Compare against expected constitutive behavior from
             # literature
-            self.assertTrue(np.isclose(CH[0, 0], CH[1, 1], rtol=1e-3, atol=5e-2)) 
-            self.assertTrue(np.isclose(CH[0, 1], 0, rtol=1e-3, atol=5e-2)) 
-            self.assertTrue(np.isclose(CH[1, 0], 0, rtol=1e-3, atol=5e-2)) 
+            self.assertTrue(np.isclose(CH[0, 0], CH[1, 1], rtol=1e-3, atol=5e-2))
+            self.assertTrue(np.isclose(CH[0, 1], 0, rtol=1e-3, atol=5e-2))
+            self.assertTrue(np.isclose(CH[1, 0], 0, rtol=1e-3, atol=5e-2))
             self.assertTrue(np.isclose(CH[0, 0], exp, rtol=1e-1, atol=5e-2))
+
 
 #     def testEngineeringConstants(self):
 #         """ Test the engineering constants (E, K, G, nu) calculations """
@@ -500,12 +511,12 @@ class TestConductanceHomogenization(object):
 
 #         # Run through a range of orientations and compare against
 #         # expected
-#         PHI, THETA = np.meshgrid(np.linspace(0, np.pi, 4), 
+#         PHI, THETA = np.meshgrid(np.linspace(0, np.pi, 4),
 #                                  np.linspace(0, 2*np.pi, 4))
 #         c = np.cos
 #         s = np.sin
 #         for phi, theta in zip(PHI.flatten(), THETA.flatten()):
-#             d = [s(phi)*c(theta), 
+#             d = [s(phi)*c(theta),
 #                  s(phi)*s(theta),
 #                  c(phi)]
 #             # Calculate single direction constants
@@ -516,7 +527,7 @@ class TestConductanceHomogenization(object):
 
 #             # Calculate multi direction constants
 #             for psi in np.linspace(0, np.pi*2, 4):
-#                 n = [s(theta)*s(psi) - c(phi)*c(theta)*c(psi), 
+#                 n = [s(theta)*s(psi) - c(phi)*c(theta)*c(psi),
 #                     -c(theta)*s(psi) - c(phi)*s(theta)*c(psi),
 #                      s(phi)*c(psi)]
 
@@ -528,7 +539,7 @@ class TestConductanceHomogenization(object):
 #                 nuc = h.nuij(d, n)
 #                 self.assertTrue(math.isclose(Gc, G, abs_tol=1e-6))
 #                 self.assertTrue(math.isclose(nuc, nu, abs_tol=1e-6))
-    
+
 #         # Compare against results from Nordmann, J., Aßmus, M., &
 #         # Altenbach, H. (2018). Visualising elastic anisotropy:
 #         # theoretical background and computational implementation.
@@ -541,7 +552,7 @@ class TestConductanceHomogenization(object):
 #         exp[3, 3] = exp[4, 4] = exp[5, 5] = 79.6*2
 #         exp[0, 1] = exp[0, 2] = exp[1, 2] = 63.9
 #         exp[1, 0] = exp[2, 0] = exp[2, 1] = 63.9
-#         h.CH = exp 
+#         h.CH = exp
 
 #         # From Figure 2
 #         Eext = h.Eext()
@@ -549,7 +560,7 @@ class TestConductanceHomogenization(object):
 #         self.assertTrue(math.isclose(h.Ei([1, 1, 1]), 185, abs_tol=5))
 #         self.assertTrue(math.isclose(Eext['min']['value'], 135, abs_tol=5))
 #         self.assertTrue(math.isclose(Eext['max']['value'], 185, abs_tol=5))
-        
+
 #         # From Figure 3
 #         Kext = h.Kext()
 #         self.assertTrue(math.isclose(h.Ki([1, 0, 0]), 97.83, abs_tol=1e-2))
@@ -558,24 +569,24 @@ class TestConductanceHomogenization(object):
 #         self.assertTrue(math.isclose(h.Ki([1, 1, 1]), 97.83, abs_tol=1e-2))
 #         self.assertTrue(math.isclose(Kext['min']['value'], 97.83, abs_tol=5))
 #         self.assertTrue(math.isclose(Kext['max']['value'], 97.83, abs_tol=5))
-        
+
 #         # From Figure 4
 #         # Note: T rotates vector v about axis r by theta
 #         Gext = h.Gext()
 #         T = lambda v, r, theta: (1-c(theta))*(np.inner(v, r))*r +\
 #                                   c(theta)*v + \
 #                                   s(theta)*np.cross(r, v)
-#         self.assertTrue(math.isclose(h.Gij([1, 0, 0], [0, 0, 1]), 77.5, 
+#         self.assertTrue(math.isclose(h.Gij([1, 0, 0], [0, 0, 1]), 77.5,
 #                                      abs_tol=2.5))
-#         self.assertTrue(math.isclose(h.Gij([1, 0, 0], [0, 1, 0]), 77.5, 
+#         self.assertTrue(math.isclose(h.Gij([1, 0, 0], [0, 1, 0]), 77.5,
 #                                      abs_tol=2.5))
 #         d = np.array([1, 1, 0])
 #         n = np.array([0, 0, 1])
 #         minG = min([h.Gij(d, T(n, d, theta)) for theta in np.linspace(0, 2*np.pi, 100)])
 #         self.assertTrue(math.isclose(minG, 50, abs_tol=2.5))
-#         self.assertTrue(math.isclose(h.Gij([1, 1, 1], [0, 1, -1]), 60, 
+#         self.assertTrue(math.isclose(h.Gij([1, 1, 1], [0, 1, -1]), 60,
 #                                      abs_tol=2.5))
-#         self.assertTrue(math.isclose(h.Gij([1, 1, 1], [0, -1, 1]), 60, 
+#         self.assertTrue(math.isclose(h.Gij([1, 1, 1], [0, -1, 1]), 60,
 #                                      abs_tol=2.5))
 #         self.assertTrue(math.isclose(Gext['min']['value'], 52, abs_tol=5))
 #         self.assertTrue(math.isclose(Gext['max']['value'], 77.5, abs_tol=5))
@@ -585,18 +596,18 @@ class TestConductanceHomogenization(object):
 #             """ Find max nu for given direction """
 #             d = np.array(d)
 #             n0 = np.array(n0)
-#             out = fun([h.nuij(d, T(n0, d, theta)) for 
+#             out = fun([h.nuij(d, T(n0, d, theta)) for
 #                                 theta in np.linspace(0, 2*np.pi, 100)])
 #             return out
-#         self.assertTrue(math.isclose(nuext([0, 1, 1], [1, 0, 0], max), 0.36, 
+#         self.assertTrue(math.isclose(nuext([0, 1, 1], [1, 0, 0], max), 0.36,
 #                                      abs_tol=0.025))
-#         self.assertTrue(math.isclose(nuext([0, 1, 1], [1, 0, 0], min), 0.08, 
+#         self.assertTrue(math.isclose(nuext([0, 1, 1], [1, 0, 0], min), 0.08,
 #                                      abs_tol=0.025))
-#         self.assertTrue(math.isclose(nuext([0, 1, 0], [1, 0, 0], min), 0.27, 
+#         self.assertTrue(math.isclose(nuext([0, 1, 0], [1, 0, 0], min), 0.27,
 #                                      abs_tol=0.025))
-#         self.assertTrue(math.isclose(nuext([0, 0, 1], [1, 0, 0], min), 0.27, 
+#         self.assertTrue(math.isclose(nuext([0, 0, 1], [1, 0, 0], min), 0.27,
 #                                      abs_tol=0.025))
-#         self.assertTrue(math.isclose(nuext([1, 1, 1], [1, -1, 0], max), 0.17, 
+#         self.assertTrue(math.isclose(nuext([1, 1, 1], [1, -1, 0], max), 0.17,
 #                                      abs_tol=0.025))
 #         nuext = h.nuext()
 #         self.assertTrue(math.isclose(nuext['min']['value'], 0.08, abs_tol=0.025))
@@ -606,17 +617,20 @@ class TestConductanceHomogenization(object):
 # class TestAdagioElasticHomogenization(TestElasticHomogenization,
 #                                       unittest.TestCase):
 #     module = homog.AdagioElasticHomogenization
-#     format = ".e"          
+#     format = ".e"
 
-class TestInternalElasticHomogenization(TestElasticHomogenization, 
-                                        unittest.TestCase):
+
+class TestInternalElasticHomogenization(TestElasticHomogenization, unittest.TestCase):
     module = homog.InternalElasticHomogenization
     format = ".npz"
 
-class TestInternalConductanceHomogenization(TestConductanceHomogenization, 
-                                            unittest.TestCase):
+
+class TestInternalConductanceHomogenization(
+    TestConductanceHomogenization, unittest.TestCase
+):
     module = homog.InternalConductanceHomogenization
     format = ".npz"
+
 
 if __name__ == "__main__":
     unittest.main()
