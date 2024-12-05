@@ -1,21 +1,25 @@
-from unitcellengine.analysis.internal import homogenization, isotropicC, isotropicK
-from unitcellengine.analysis.material import Ei, Ki, Gij, nuij, _iext, _ijext, _Eext, _d, _n
-import numpy as np
+import json
+import logging
+import pprint as pp
+import re
 import sys
 from pathlib import Path
+
+import numpy as np
 import pandas as pd
-import logging
-from unitcellengine.utilities import timing
-import re
-import json
-from _ctypes import PyObj_FromPtr
-import pprint as pp
-from numba import jit, prange
 import plotly.graph_objects as go
+from _ctypes import PyObj_FromPtr
+from numba import jit, prange
 from plotly.subplots import make_subplots
 
+from unitcellengine.analysis.internal import (homogenization, isotropicC,
+                                              isotropicK)
+from unitcellengine.analysis.material import (Ei, Gij, Ki, _d, _Eext, _iext,
+                                              _ijext, _n, nuij)
+from unitcellengine.utilities import timing
+
 # I primarily followed these references for the elastic homogenization
-# calculations: 
+# calculations:
 # - Pinho-da-Cruz, J., Oliveira, J. A., & Teixeira-Dias, F. (2009).
 #   Asymptotic homogenisation in linear elasticity. Part I: Mathematical
 #   formulation and finite element modelling. Computational Materials
@@ -25,7 +29,7 @@ from plotly.subplots import make_subplots
 #   homogenization method for effective properties of periodic
 #   heterogeneous beam and size effect of basic cell in thickness
 #   direction. Computers & Structures, 156, 1–11.
-#   https://doi.org/10.1016/J.COMPSTRUC.2015.04.010 
+#   https://doi.org/10.1016/J.COMPSTRUC.2015.04.010
 #
 # Note that most homogenization papers are discussed in the context of
 # elasticity theory and doesn't provide much insight into the actual
@@ -34,7 +38,7 @@ from plotly.subplots import make_subplots
 # software. The second reference above is the only reference that I came
 # across that does both rigorous asymptotic homogenization (rather that
 # basic averaging based homogenization) in the context of commercial
-# software. 
+# software.
 
 
 logger = logging.getLogger(__name__)
@@ -49,8 +53,8 @@ V2 = np.matmul(V.T, V)
 
 @jit(nopython=True, cache=True)
 def _worstStresses(A):
-    """ Calculate worst case element stresses from amplification matrix """
-    
+    """Calculate worst case element stresses from amplification matrix"""
+
     # Calculate M = A^T V^T V A, where A is the stress amplification
     # matrix, which corresponds to the square of the local von mises
     # stress. In a sense, it is the von Mises amplification matrix.
@@ -64,13 +68,13 @@ def _worstStresses(A):
         # memory) that are then faster to operate upon
         subA = A[i, :, :].copy()
         subAT = (subA.T).copy()
-        M = (subAT @ V2 @ subA)
-        
+        M = subAT @ V2 @ subA
+
         # Solve the eigenvalue problem for each element
-        # Here, the matrix is converted to a complex form to prevent 
-        # numerical issues that can occur when the determinant of M is 
-        # near zero and slightly negative. The converstion is only 
-        # necessary when using numba, which can't handle the shift from 
+        # Here, the matrix is converted to a complex form to prevent
+        # numerical issues that can occur when the determinant of M is
+        # near zero and slightly negative. The converstion is only
+        # necessary when using numba, which can't handle the shift from
         # real to complex.
         lams, vs = np.linalg.eig(M.astype(np.complex128))
         lams = np.real(lams)
@@ -78,54 +82,59 @@ def _worstStresses(A):
 
         # Store the max values
         worstInd = np.argmax(lams)
-        maxStresses[i] = np.sqrt(0.5*lams[worstInd])
+        maxStresses[i] = np.sqrt(0.5 * lams[worstInd])
         maxDirections[:, i] = vs[:, worstInd]
 
     # maxInd = np.argmax(maxStresses)
 
     return maxStresses, maxDirections
 
+
 # Class used to prevent indentation of certain objects within a JSON
-# structure 
+# structure
 class NoIndent(object):
-    """ Value wrapper. """
+    """Value wrapper."""
+
     def __init__(self, value):
         self.value = value
 
+
 def numpy2str(data):
-    ''' Use pprint to generate a nicely formatted string
-    '''
+    """Use pprint to generate a nicely formatted string"""
 
     # Get rid of array(...) and keep only [[...]]
     f = pp.pformat(data, width=sys.maxsize)
-    f = f[6:-1].splitlines() # get rid of array(...) and keep only [[...]]
+    f = f[6:-1].splitlines()  # get rid of array(...) and keep only [[...]]
 
-    # Remove identation caused by printing "array(" 
-    for i in range(1,len(f)):
+    # Remove identation caused by printing "array("
+    for i in range(1, len(f)):
         f[i] = f[i][6:]
 
-    return '\n'.join(f)
+    return "\n".join(f)
+
 
 # Define encoders/decoders for JSON data
 class NumpyEncoder(json.JSONEncoder):
 
-    FORMAT_SPEC = '@@{}@@'
-    regex = re.compile(FORMAT_SPEC.format(r'(\d+)'))
+    FORMAT_SPEC = "@@{}@@"
+    regex = re.compile(FORMAT_SPEC.format(r"(\d+)"))
 
     def __init__(self, **kwargs):
         # Save copy of any keyword argument values needed for use here.
-        self.__sort_keys = kwargs.get('sort_keys', None)
+        self.__sort_keys = kwargs.get("sort_keys", None)
         super().__init__(**kwargs)
 
     # def default(self, obj):
     #     if isinstance(obj, np.ndarray):
     #         return obj.tolist()
     #     return json.JSONEncoder.default(self, obj)
-    
 
     def default(self, obj):
-        return (self.FORMAT_SPEC.format(id(obj)) if isinstance(obj, np.ndarray)
-                else super().default(obj))
+        return (
+            self.FORMAT_SPEC.format(id(obj))
+            if isinstance(obj, np.ndarray)
+            else super().default(obj)
+        )
 
     def encode(self, obj):
         format_spec = self.FORMAT_SPEC  # Local var to expedite access.
@@ -143,7 +152,8 @@ class NumpyEncoder(json.JSONEncoder):
             # Replace the matched id string with json formatted representation
             # of the corresponding Python object.
             json_repr = json_repr.replace(
-                            '"{}"'.format(format_spec.format(id)), json_obj_repr)
+                '"{}"'.format(format_spec.format(id)), json_obj_repr
+            )
 
         return json_repr
 
@@ -160,8 +170,8 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 def pMean(values, p):
-    """ p-mean metric, which is lower bound on the local maximum 
-    
+    """p-mean metric, which is lower bound on the local maximum
+
     Inputs
     ------
     values: list-like of length N
@@ -176,11 +186,12 @@ def pMean(values, p):
     p-mean = (1/N sum(f^p))^(1/p)
     """
     N = len(values)
-    return ((values**p).sum()/N)**(1./p)
+    return ((values**p).sum() / N) ** (1.0 / p)
+
 
 def pNorm(values, p):
-    """ p-norm metric, which is an upper bound on the local maximum 
-    
+    """p-norm metric, which is an upper bound on the local maximum
+
     Inputs
     ------
     values: list-like of length N
@@ -195,11 +206,12 @@ def pNorm(values, p):
     p-norm = (sum(f^p))^(1/p)
     """
     N = len(values)
-    return ((values**p).sum())**(1./p)
+    return ((values**p).sum()) ** (1.0 / p)
+
 
 def upperKS(values, p):
-    """ Upper KS metric, which is an upper bound on the local maximum 
-    
+    """Upper KS metric, which is an upper bound on the local maximum
+
     Inputs
     ------
     values: list-like of length N
@@ -214,11 +226,12 @@ def upperKS(values, p):
     upper KS = ln(sum(exp(P f)))/P
     """
     N = len(values)
-    return np.log(np.exp(values*p).sum())/p
+    return np.log(np.exp(values * p).sum()) / p
+
 
 def lowerKS(values, p):
-    """ Lower KS metric, which is a lower bound on the local maximum 
-    
+    """Lower KS metric, which is a lower bound on the local maximum
+
     Inputs
     ------
     values: list-like of length N
@@ -233,13 +246,15 @@ def lowerKS(values, p):
     lower KS = upper KS - ln(N)/p
     """
     N = len(values)
-    return upperKS(values, p) - np.log(N)/p
+    return upperKS(values, p) - np.log(N) / p
+
 
 def readExodusNames(dataset, name):
-    """ Read in name definitions for a given Exodus parameter """
+    """Read in name definitions for a given Exodus parameter"""
 
-    assert name[:5] == 'name_', f"Invalid Exodus name {name}. First " +\
-                               "characters must be 'name_'"
+    assert name[:5] == "name_", (
+        f"Invalid Exodus name {name}. First " + "characters must be 'name_'"
+    )
 
     # Parse the global variable names, which are stored in a masked
     # numpy array with each element corresponding to a byte char of the
@@ -250,34 +265,36 @@ def readExodusNames(dataset, name):
         # Pull out valid data
         subbname = bname[~bname.mask]
         names.append("".join([f"{c.decode('utf-8')}" for c in subbname]))
-    
+
     return names
 
-def readExodusValues(dataset, name):
-    """ Read in variable definitions for a given exodus parameter """
 
-    assert name[:5] == 'vals_', f"Invalid Exodus name {name}. First " +\
-                               "characters must be 'vals_'"
-    
+def readExodusValues(dataset, name):
+    """Read in variable definitions for a given exodus parameter"""
+
+    assert name[:5] == "vals_", (
+        f"Invalid Exodus name {name}. First " + "characters must be 'vals_'"
+    )
+
     # Convert all data from big edian to little endian as big edian is
     # not supported by pandas (or, at least the current version used
     # locally). See
     # https://stackoverflow.com/questions/60161759/valueerror-big-endian-buffer-not-supported-on-little-endian-compiler
     # for reference.
     data = dataset.variables[name][:]
-    if data.dtype.byteorder == '>':
+    if data.dtype.byteorder == ">":
         data = data.byteswap().newbyteorder()
     return data
 
 
 def readExodusGlobal(filename):
-    """ Read global variables from ExodusII file 
-    
+    """Read global variables from ExodusII file
+
     Arguments
     --------
     filename: str or Path
         Filename of ExodusII file.
-    
+
     Returns
     -------
     Pandas DataFrame containing global variables
@@ -286,27 +303,29 @@ def readExodusGlobal(filename):
     filename = Path(filename)
 
     # Make sure the input mesh is an exodus file
-    assert filename.suffix in ['.e', '.exo'], \
-        "Input mesh must be an ExodusII file. Specified file is of " +\
-        f"type {filename.suffix}"
+    assert filename.suffix in [".e", ".exo"], (
+        "Input mesh must be an ExodusII file. Specified file is of "
+        + f"type {filename.suffix}"
+    )
 
     # Read in exodus file
-    with Dataset(filename, 'r') as e:
-        names = readExodusNames(e, 'name_glo_var')
-        data = readExodusValues(e, 'vals_glo_var')
+    with Dataset(filename, "r") as e:
+        names = readExodusNames(e, "name_glo_var")
+        data = readExodusValues(e, "vals_glo_var")
 
     # Compile data into a pandas dataframe and return
     df = pd.DataFrame(data, columns=names)
     return df
 
+
 def readExodusElemental(filename):
-    """ Read elemental variables from ExodusII file 
-    
+    """Read elemental variables from ExodusII file
+
     Arguments
     --------
     filename: str or Path
         Filename of ExodusII file.
-    
+
     Returns
     -------
     Dictionary containing elemental data
@@ -315,21 +334,22 @@ def readExodusElemental(filename):
     filename = Path(filename)
 
     # Make sure the input mesh is an exodus file
-    assert filename.suffix in ['.e', '.exo'], \
-        "Input mesh must be an ExodusII file. Specified file is of " +\
-        f"type {filename.suffix}"
+    assert filename.suffix in [".e", ".exo"], (
+        "Input mesh must be an ExodusII file. Specified file is of "
+        + f"type {filename.suffix}"
+    )
 
     # Read in exodus file
-    e = Dataset(filename, 'r')
+    e = Dataset(filename, "r")
 
     # Read in element variable names
-    names = readExodusNames(e, 'name_elem_var')
+    names = readExodusNames(e, "name_elem_var")
 
     # Find relevant element keys (noting that, if there are multiple
     # integration point for an element, that data will be exported as a
     # unique variable for each integration point)
-    keys = [k for k in e.variables.keys() if 'vals_elem' in k]
-    
+    keys = [k for k in e.variables.keys() if "vals_elem" in k]
+
     # Read in each set of data and store it in a pandas dataframe
     data = {}
     for k, name in zip(keys, names):
@@ -340,14 +360,15 @@ def readExodusElemental(filename):
 
     return data
 
+
 def readExodusNodal(filename):
-    """ Read nodal variables from ExodusII file 
-    
+    """Read nodal variables from ExodusII file
+
     Arguments
     --------
     filename: str or Path
         Filename of ExodusII file.
-    
+
     Returns
     -------
     Dictionary containing nodal data
@@ -356,21 +377,22 @@ def readExodusNodal(filename):
     filename = Path(filename)
 
     # Make sure the input mesh is an exodus file
-    assert filename.suffix in ['.e', '.exo'], \
-        "Input mesh must be an ExodusII file. Specified file is of " +\
-        f"type {filename.suffix}"
+    assert filename.suffix in [".e", ".exo"], (
+        "Input mesh must be an ExodusII file. Specified file is of "
+        + f"type {filename.suffix}"
+    )
 
     # Read in exodus file
-    e = Dataset(filename, 'r')
+    e = Dataset(filename, "r")
 
     # Read in nodal variable names
-    names = readExodusNames(e, 'name_nod_var')
+    names = readExodusNames(e, "name_nod_var")
 
     # Find relevant element keys (noting that, if there are multiple
     # integration point for an element, that data will be exported as a
     # unique variable for each integration point)
-    keys = [k for k in e.variables.keys() if 'vals_nod' in k]
-    
+    keys = [k for k in e.variables.keys() if "vals_nod" in k]
+
     # Read in each set of data and store it in a pandas dataframe
     data = {}
     for k, name in zip(keys, names):
@@ -381,31 +403,32 @@ def readExodusNodal(filename):
 
     return data
 
+
 # .
 
 
 class Homogenization(object):
-    """ Abstract class definition used to manage property homogenization """
-    
+    """Abstract class definition used to manage property homogenization"""
+
     KIND = None
     N = None
 
     def __init__(self, mesh, path=None):
-        """ Constructor for homogenization class 
-        
+        """Constructor for homogenization class
+
         Arguments
         ---------
         mesh: str or Path
             Unitcell mesh to homogenize. This mesh needs to be created
             by the meshing submodule so that the necessary nodesets are
             generated.
-        
+
         Keywords
         --------
         path: str or Path or None (Default=None)
             Defines the base path for all file generation. If none,
             files are located in the same folder as the input mesh file.
-         
+
 
         """
         self.mesh = Path(mesh)
@@ -415,8 +438,7 @@ class Homogenization(object):
         # Parse the path input
         if path:
             self.path = Path(path)
-            assert self.path.is_dir(), f"Specified path {path} is not a " +\
-                                       "directory."
+            assert self.path.is_dir(), f"Specified path {path} is not a " + "directory."
         else:
             self.path = self.mesh.parent
 
@@ -425,9 +447,11 @@ class Homogenization(object):
         if self.processed:
             self.loadResults()
             # self.result = np.genfromtxt(self.homogenizationFile)
-            logger.info("Processed data already exists and has been "
-                        f"loaded from file {self.homogenizationFile}")
-    
+            logger.info(
+                "Processed data already exists and has been "
+                f"loaded from file {self.homogenizationFile}"
+            )
+
     def __repr__(self):
         output = f"{self.__class__.__name__}({self.mesh})"
         # If results are present, print array
@@ -441,60 +465,60 @@ class Homogenization(object):
             output += " (Not processed)"
 
         return output
-    
+
     def meshQuality(self):
-        """ Return each element's quality metric """
+        """Return each element's quality metric"""
         raise NotImplementedError("Need to implement 'meshQuality' method")
 
     @property
     def processed(self):
-        """ Has the homogenization been processed yet? """
+        """Has the homogenization been processed yet?"""
         if self.homogenizationFile.exists() or self.result:
             return True
         else:
-            return False 
-    
+            return False
+
     @property
     def homogenizationFile(self):
-        """ Homogenization filename for post processed data"""
-        filename = self.path / Path(self.mesh.stem +\
-                                    f"_{self.KIND}_homogenization.json")
+        """Homogenization filename for post processed data"""
+        filename = self.path / Path(
+            self.mesh.stem + f"_{self.KIND}_homogenization.json"
+        )
         return filename
 
     def run(self, reuse=True, **kwargs):
-        """ Run required simulations for homogenization """
+        """Run required simulations for homogenization"""
         raise NotImplementedError("Need to implement 'run' method")
-    
-    def clear(self):
-        """ Clear all outputs files that may exist """
-        files = [self.homogenizationFile, self.result]
+
+    def cleanup(self):
+        """Clear all outputs files that may exist"""
+        files = [self.homogenizationFile]
         for file in files:
-            if file:
-                file = Path(file)
-                file.unlink(missing_ok=True)
+            file = Path(file)
+            file.unlink(missing_ok=True)
 
     def preprocess(self, **kwargs):
-        """ Preprocess the results to a common form
-        
+        """Preprocess the results to a common form
+
         Notes
         -----
-        This method needs to minimally calculate the homogenized matrix 
+        This method needs to minimally calculate the homogenized matrix
         and store it in self.CH.
-         """
+        """
         raise NotImplementedError("Need to implement 'preprocess' method")
 
     def process(self, rtol=1e-3, check=True, reuse=True, **kwargs):
-        """ Calculate homogenization based on simulation results """
+        """Calculate homogenization based on simulation results"""
 
         # Reset the result if the result isn't to be reused
         if not reuse:
             self.result = None
 
         # If reuse is specified and the data already exists, break out
-        # early 
+        # early
         if reuse and self.processed:
             return
-        
+
         # Preprocess data
         self.preprocess(**kwargs)
 
@@ -505,27 +529,31 @@ class Homogenization(object):
 
         # Define an absolute tolerance for comparisons based on the largest
         # value of the stiffness matrix.
-        atol = rtol*(CHmax-CHmin)
+        atol = rtol * (CHmax - CHmin)
 
         # Make sure all diagonals are possitive
         if check and any(np.diag(CH) < 0):
-            raise RuntimeError("The computed homogenized matrix "
-                               "has negative elements along the diagonal "
-                               "which is aphysical. Something likely "
-                               "went wrong with the homogenization "
-                               "simulations. Check log files for poor "
-                               "convergence or output files for large "
-                               "mesh distortions.")
+            raise RuntimeError(
+                "The computed homogenized matrix "
+                "has negative elements along the diagonal "
+                "which is aphysical. Something likely "
+                "went wrong with the homogenization "
+                "simulations. Check log files for poor "
+                "convergence or output files for large "
+                "mesh distortions."
+            )
 
         # Check for rough symmetry
         if check and not np.allclose(CH, CH.T, atol=atol):
-            raise RuntimeError("The computed homogenized matrix "
-                               "is not symmetric, even within numerical "
-                               "noise. Something likely went wrong "
-                               "with the homogenization simulations. "
-                               "Check log files for poor convergence "
-                               "or output files for large mesh distortions.")
-        
+            raise RuntimeError(
+                "The computed homogenized matrix "
+                "is not symmetric, even within numerical "
+                "noise. Something likely went wrong "
+                "with the homogenization simulations. "
+                "Check log files for poor convergence "
+                "or output files for large mesh distortions."
+            )
+
         # Force symmetry
         CH += CH.T
         CH /= 2
@@ -537,29 +565,31 @@ class Homogenization(object):
         self.CH = CH
 
     def loadResults(self):
-        """ Load pre-existing results """
+        """Load pre-existing results"""
         raise NotImplementedError("Need to implement 'loadResults' method ")
 
 
 class ElasticHomogenization(Homogenization):
-    """ Linear elastic homogenization 
-    
+    """Linear elastic homogenization
+
     Note
     ----
     The calculated constitutive matrix is in Voigt notation using
     tensorial shear strain rather than engineering shear strain.
     """
 
-    KIND = 'elastic'
+    KIND = "elastic"
     N = 6
 
     def __init__(self, mesh, E, nu, **kwargs):
-        """ Elastic homogenization """
+        """Elastic homogenization"""
 
         # Check the constitutive input parameters
         assert E > 0, f"Elastic modulus must be greater than zero, not {E}"
-        assert -1 < nu < 0.5, "Poisson's ratio must be greater than zero, " +\
-                               f"must be between -1 and 0.5, not {nu}."
+        assert -1 < nu < 0.5, (
+            "Poisson's ratio must be greater than zero, "
+            + f"must be between -1 and 0.5, not {nu}."
+        )
         self.E = E
         self.nu = nu
         self.maxStresses = None
@@ -571,11 +601,9 @@ class ElasticHomogenization(Homogenization):
         # Run the super class constructor
         super().__init__(mesh, **kwargs)
 
-    
-    
     def check(self):
-        """ Check the simulation results for errors 
-        
+        """Check the simulation results for errors
+
         Returns
         -------
         Dictionary with the run indeces as the keys and the run success
@@ -583,60 +611,64 @@ class ElasticHomogenization(Homogenization):
         """
 
         raise NotImplementedError()
-    
+
     def preprocess(self):
-        """ Preprocess the results data
-        
+        """Preprocess the results data
+
         This method should create the following properties:
             - CH: 6x6 homogenized stiffness matrix
             - displacement: nnodes x 3 x 6 array that defines the nodal
-            displacement results for each homogenization load case 
+            displacement results for each homogenization load case
             - strain: nelx6x6 array that defines the elemental
             average strain for each homogenization load case
             (column-wise)
         """
-        
+
         raise NotImplementedError("Preprocess method not implemented yet")
-    
+
     def loadResults(self):
-        """ Load results file """
+        """Load results file"""
 
         # Run stock preprocessing
         self.preprocess()
 
         # Load the results json file
-        with open(self.homogenizationFile, 'r') as f:
+        with open(self.homogenizationFile, "r") as f:
             result = json.load(f)
-        
+
         # Load in the material behavior
-        E = result['E']
-        nu = result['nu']
+        E = result["E"]
+        nu = result["nu"]
         if not np.isclose(E, self.E):
-            logger.warning("The loaded results file does not correspond "
-                           "the to current elastic modulus value E of "
-                           f"{self.E}. Ignoring results.")
+            logger.warning(
+                "The loaded results file does not correspond "
+                "the to current elastic modulus value E of "
+                f"{self.E}. Ignoring results."
+            )
             return
 
         if not np.isclose(nu, self.nu):
-            logger.warning("The loaded results file does not correspond "
-                           "the to current elastic modulus value of ν "
-                           f"{self.nu}. Ignoring results.")
+            logger.warning(
+                "The loaded results file does not correspond "
+                "the to current elastic modulus value of ν "
+                f"{self.nu}. Ignoring results."
+            )
             return
 
         # Convert relevant lists to numpy arrays
-        result['CH'] = np.array(result['CH'])
-        result['SH'] = np.array(result['SH'])
+        result["CH"] = np.array(result["CH"])
+        result["SH"] = np.array(result["SH"])
         self.result = result
 
         # Pull out the homogenized elasticity matrix
-        self.CH = result['CH'] 
+        self.CH = result["CH"]
 
         self.E = E
         self.nu = nu
 
     @property
     def C(self):
-        """ Solid material isotropic elastic stiffness matrix (tensorial)"""
+        """Solid material isotropic elastic stiffness matrix (tensorial)"""
 
         # Calculate the relevant isotropic material proerpties
         C = isotropicC(self.E, self.nu)
@@ -648,13 +680,13 @@ class ElasticHomogenization(Homogenization):
 
     @property
     def SH(self):
-        """ Homogenized compliance matrix """
+        """Homogenized compliance matrix"""
         return np.linalg.inv(self.CH)
 
     @property
     def SHtensor(self):
-        """ Homogenized compliance tensor 
-        
+        """Homogenized compliance tensor
+
         Note that you need to be careful in doing this processes as it
         depends on the Voigt notation form being used.
         """
@@ -662,7 +694,7 @@ class ElasticHomogenization(Homogenization):
         # Convert C to standard Voigt notation prior to calculating the
         # compliance matrix
         C = self.CH.copy()
-        C[:, 3:] = C[:, 3:]/2
+        C[:, 3:] = C[:, 3:] / 2
         S = np.linalg.inv(C)
 
         # Create the compliance tensor
@@ -671,57 +703,63 @@ class ElasticHomogenization(Homogenization):
         for i in range(3):
             for j in range(3):
                 St[i, i, j, j] = St[j, j, i, i] = S[i, j]
-            
+
             for j, (m, n) in zip(range(3, 6), mapping):
-                St[i, i, m, n] = St[m, n, i, i] = S[i, j]/2
-                St[i, i, n, m] = St[n, m, i, i] = S[i, j]/2
+                St[i, i, m, n] = St[m, n, i, i] = S[i, j] / 2
+                St[i, i, n, m] = St[n, m, i, i] = S[i, j] / 2
 
         for i, (m, n) in zip(range(3, 6), mapping):
             for j, (p, q) in zip(range(3, 6), mapping):
-                St[q, p, m, n] = St[p, q, n, m] = St[n, m, q, p] = S[i, j]/4
-                St[m, n, p, q] = St[n, m, p, q] = St[m, n, q, p] = St[p, q, m, n] = S[i, j]/4
-        
-        return St
-                
+                St[q, p, m, n] = St[p, q, n, m] = St[n, m, q, p] = S[i, j] / 4
+                St[m, n, p, q] = St[n, m, p, q] = St[m, n, q, p] = St[p, q, m, n] = (
+                    S[i, j] / 4
+                )
 
+        return St
 
     @timing(logger)
     def process(self, save=True, reuse=True, rtol=1e-3, check=True, **kwargs):
         logger.info("Processing elastic homogenization results.")
 
-
         # Run the parent class process method
         super().process(reuse=reuse, rtol=rtol, check=check, **kwargs)
-        
 
         # Calculate local strain mappinging matrices, which is a
         # (nel x 6 x 6) matrix (noting that it is in this form due to
         # how matmul works in numpy - i.e, matmul on ND arrays
         # corresponds to the matrix multiplication of the last 2 dims or
         # each array).
-        # From Asymptotic homogenisation in linear elasticity. 
-        # Part I: Mathematical formulation and finite element modelling. 
-        # Computational Materials Science, 45(4), 1073–1080. 
+        # From Asymptotic homogenisation in linear elasticity.
+        # Part I: Mathematical formulation and finite element modelling.
+        # Computational Materials Science, 45(4), 1073–1080.
         # https://doi.org/10.1016/J.COMMATSCI.2009.02.025
         # eps(x, y) = A*eps_0(x)
         self.strainAmplification = np.eye(self.N)[np.newaxis] - self.strains
 
-
         # Create a dictionary with all of the output data
-        self.result = dict(CH=self.CH, SH=self.SH, 
-                           anisotropyIndex=self.anisotropyIndex,
-                           E=self.E, nu=self.nu)
-        
+        self.result = dict(
+            CH=self.CH,
+            SH=self.SH,
+            anisotropyIndex=self.anisotropyIndex,
+            E=self.E,
+            nu=self.nu,
+        )
+
         # Calculate bounding engineering constants
         Eext = self.Eext()
         Gext = self.Gext()
         Kext = self.Kext()
         nuext = self.nuext()
-        self.result['engineeringConstants'] = \
-                dict(Emax=Eext['max'], Emin=Eext['min'],
-                     Kmax=Kext['max'], Kmin=Kext['min'],
-                     Gmax=Gext['max'], Gmin=Gext['min'],
-                     numax=nuext['max'], numin=nuext['min'],)
+        self.result["engineeringConstants"] = dict(
+            Emax=Eext["max"],
+            Emin=Eext["min"],
+            Kmax=Kext["max"],
+            Kmin=Kext["min"],
+            Gmax=Gext["max"],
+            Gmin=Gext["min"],
+            numax=nuext["max"],
+            numin=nuext["min"],
+        )
 
         # Determine the mesh quality and apply a mask to pull only good
         # quality elements
@@ -730,14 +768,19 @@ class ElasticHomogenization(Homogenization):
 
         # Calculate the stress amplification values and worst case
         # stresses
-        unitApplications = dict(vm11=None, vm22=None, vm33=None, 
-                                vm12=None, vm23=None, vm13=None,
-                                vmWorst=None)
-        for i, name in enumerate(['vm11', 'vm22', 'vm33',
-                                  'vm12', 'vm23', 'vm13']):
+        unitApplications = dict(
+            vm11=None,
+            vm22=None,
+            vm33=None,
+            vm12=None,
+            vm23=None,
+            vm13=None,
+            vmWorst=None,
+        )
+        for i, name in enumerate(["vm11", "vm22", "vm33", "vm12", "vm23", "vm13"]):
             # Define unit stress vector
             astress = np.zeros(6)
-            astress[i] = 1.
+            astress[i] = 1.0
 
             # Calculate von Mises stresses
             vms = self.localVMStress(astress)
@@ -750,22 +793,24 @@ class ElasticHomogenization(Homogenization):
         # loading direction
         maxvms, maxvmDirs = self.processWorstStress()
         maxInd = np.argmax(maxvms[goodQuality])
-        unitApplications['vmWorst'] = (maxvms[goodQuality][maxInd],
-                                       maxvmDirs[:, goodQuality][:, maxInd])
+        unitApplications["vmWorst"] = (
+            maxvms[goodQuality][maxInd],
+            maxvmDirs[:, goodQuality][:, maxInd],
+        )
 
-        self.result['amplification'] = unitApplications
+        self.result["amplification"] = unitApplications
 
         # Save results if requested
         if save:
             # Save the data to a json file
-            with open(self.homogenizationFile, 'w') as f:
+            with open(self.homogenizationFile, "w") as f:
                 f.write(json.dumps(self.result, cls=NumpyEncoder, indent=2))
 
         return self.result
-    
+
     def Ei(self, d):
-        """ Calculate the elastic modulus in a specific direction 
-        
+        """Calculate the elastic modulus in a specific direction
+
         Arguments
         ---------
         d: length 3 array-like
@@ -779,20 +824,20 @@ class ElasticHomogenization(Homogenization):
         ----
         The C matrix calculated in this homogenization process is
         different than the C matrix defined in the below reference.
-        
+
         References
         ----------
         Nordmann, J., Aßmus, M., & Altenbach, H. (2018). Visualising
         elastic anisotropy: theoretical background and computational
         implementation. Continuum Mechanics and Thermodynamics, 30(4),
-        689–708. https://doi.org/10.1007/s00161-018-0635-9 
-        
+        689–708. https://doi.org/10.1007/s00161-018-0635-9
+
         """
 
         return Ei(self.CH, d)
-    
+
     def Eext(self):
-        """ Calculate the extreme values for the elastic modulus """
+        """Calculate the extreme values for the elastic modulus"""
 
         # Pull out the compliance tensor
         St = self.SHtensor
@@ -801,23 +846,24 @@ class ElasticHomogenization(Homogenization):
         outmin, outmax = _Eext(St)
 
         # Export in a more readable format
-        return dict(max=dict(value=outmax[0], d=outmax[1]), 
-                min=dict(value=outmin[0], d=outmin[1]))
+        return dict(
+            max=dict(value=outmax[0], d=outmax[1]),
+            min=dict(value=outmin[0], d=outmin[1]),
+        )
 
         # return _iext(self.Ei)
-        
+
     def plotE(self):
-        """ Plot 3D variation of elastic modulus """
+        """Plot 3D variation of elastic modulus"""
 
         # Create a grid to plot the elastic modulus on
         N = 40
-        M = int(N/2)
-        PHI, THETA = np.meshgrid(np.linspace(0, np.pi, N),
-                                 np.linspace(0, 2*np.pi, M))
-        
+        M = int(N / 2)
+        PHI, THETA = np.meshgrid(np.linspace(0, np.pi, N), np.linspace(0, 2 * np.pi, M))
+
         # Calculate the elastic modulus at each grid point and map it
         # into cartesian space
-        E = np.zeros((M, N)) 
+        E = np.zeros((M, N))
         X = np.zeros((M, N))
         Y = np.zeros((M, N))
         Z = np.zeros((M, N))
@@ -825,22 +871,27 @@ class ElasticHomogenization(Homogenization):
             for j in range(N):
                 dij = _d(PHI[i, j], THETA[i, j])
                 E[i, j] = self.Ei(dij)
-                X[i, j], Y[i, j], Z[i, j] = E[i, j]*dij
-        
+                X[i, j], Y[i, j], Z[i, j] = E[i, j] * dij
+
         # Plot the geometry
         surface = go.Surface(x=X, y=Y, z=Z, surfacecolor=E)
         fig = go.Figure(data=surface)
-        fig.update_traces(contours_x=dict(show=True, usecolormap=True,
-                                        highlightcolor="limegreen", project_x=True),
-                        contours_y=dict(show=True, usecolormap=True,
-                                        highlightcolor="limegreen", project_y=True),
-                        contours_z=dict(show=True, usecolormap=True,
-                                        highlightcolor="limegreen", project_z=True))
+        fig.update_traces(
+            contours_x=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_x=True
+            ),
+            contours_y=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_y=True
+            ),
+            contours_z=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_z=True
+            ),
+        )
         fig.show()
 
     def Ki(self, d):
-        """ Calculate the bulk modulus in a specific direction 
-        
+        """Calculate the bulk modulus in a specific direction
+
         Arguments
         ---------
         d: length 3 array-like
@@ -854,30 +905,29 @@ class ElasticHomogenization(Homogenization):
         ----
         The C matrix calculated in this homogenization process is
         different than the C matrix defined in the below reference.
-        
+
         References
         ----------
         Nordmann, J., Aßmus, M., & Altenbach, H. (2018). Visualising
         elastic anisotropy: theoretical background and computational
         implementation. Continuum Mechanics and Thermodynamics, 30(4),
-        689–708. https://doi.org/10.1007/s00161-018-0635-9 
-        
+        689–708. https://doi.org/10.1007/s00161-018-0635-9
+
         """
 
         return Ki(self.CH, d)
-    
+
     def plotK(self):
-        """ Plot 3D variation of elastic modulus """
+        """Plot 3D variation of elastic modulus"""
 
         # Create a grid to plot the elastic modulus on
         N = 40
-        M = int(N/2)
-        PHI, THETA = np.meshgrid(np.linspace(0, np.pi, N),
-                                 np.linspace(0, 2*np.pi, M))
-        
+        M = int(N / 2)
+        PHI, THETA = np.meshgrid(np.linspace(0, np.pi, N), np.linspace(0, 2 * np.pi, M))
+
         # Calculate the elastic modulus at each grid point and map it
         # into cartesian space
-        K = np.zeros((M, N)) 
+        K = np.zeros((M, N))
         X = np.zeros((M, N))
         Y = np.zeros((M, N))
         Z = np.zeros((M, N))
@@ -885,43 +935,47 @@ class ElasticHomogenization(Homogenization):
             for j in range(N):
                 dij = _d(PHI[i, j], THETA[i, j])
                 K[i, j] = self.Ki(dij)
-                X[i, j], Y[i, j], Z[i, j] = K[i, j]*dij
-        
+                X[i, j], Y[i, j], Z[i, j] = K[i, j] * dij
+
         # Plot the geometry
         surface = go.Surface(x=X, y=Y, z=Z, surfacecolor=K)
         fig = go.Figure(data=surface)
-        fig.update_traces(contours_x=dict(show=True, usecolormap=True,
-                                        highlightcolor="limegreen", project_x=True),
-                        contours_y=dict(show=True, usecolormap=True,
-                                        highlightcolor="limegreen", project_y=True),
-                        contours_z=dict(show=True, usecolormap=True,
-                                        highlightcolor="limegreen", project_z=True))
-        
+        fig.update_traces(
+            contours_x=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_x=True
+            ),
+            contours_y=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_y=True
+            ),
+            contours_z=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_z=True
+            ),
+        )
+
         return fig
 
     def Kext(self):
-        """ Calculate the max and min bulk modulus values """
+        """Calculate the max and min bulk modulus values"""
 
         # Pull out the compliance tensor
         St = self.SHtensor
 
         # Solve the 2nd order tensor eigenvalue problem
-        eig, eigv = np.linalg.eig(np.einsum('ij,ijkl->kl', np.eye(3)*3, St))
+        eig, eigv = np.linalg.eig(np.einsum("ij,ijkl->kl", np.eye(3) * 3, St))
         imax = np.argmax(eig)
         imin = np.argmin(eig)
 
         # Take the inverse to calculate the bulk modulus values
-        Kmax = 1/eig[imin]
+        Kmax = 1 / eig[imin]
         dmax = eigv[imin, :]
-        Kmin = 1/eig[imax]
+        Kmin = 1 / eig[imax]
         dmin = eigv[imax, :]
-        
-        return dict(max=dict(value=Kmax, d=dmax), 
-                    min=dict(value=Kmin, d=dmin))
+
+        return dict(max=dict(value=Kmax, d=dmax), min=dict(value=Kmin, d=dmin))
 
     def Gij(self, *args):
-        """ Calculate the bulk modulus in a specific orientation 
-        
+        """Calculate the bulk modulus in a specific orientation
+
         Arguments
         ---------
         d: length 3 array-like
@@ -951,110 +1005,127 @@ class ElasticHomogenization(Homogenization):
         ----
         The C matrix calculated in this homogenization process is
         different than the C matrix defined in the below reference.
-        
+
         References
         ----------
         Nordmann, J., Aßmus, M., & Altenbach, H. (2018). Visualising
         elastic anisotropy: theoretical background and computational
         implementation. Continuum Mechanics and Thermodynamics, 30(4),
-        689–708. https://doi.org/10.1007/s00161-018-0635-9 
-        
+        689–708. https://doi.org/10.1007/s00161-018-0635-9
+
         """
 
         return Gij(self.CH, *args)
-    
+
     def plotG(self):
-        """ Plot 3D variation of elastic modulus """
+        """Plot 3D variation of elastic modulus"""
 
         # Create a grid to plot the elastic modulus on
         N = 40
-        M = N*2
-        PHI, THETA = np.meshgrid(np.linspace(0, np.pi, N),
-                                 np.linspace(0, 2*np.pi, M))
+        M = N * 2
+        PHI, THETA = np.meshgrid(np.linspace(0, np.pi, N), np.linspace(0, 2 * np.pi, M))
         # psis = np.linspace(0, np.pi/2, P)
         psis = np.arange(0, 181, 10)
         P = len(psis)
 
         # Calculate the shear modulus at each grid point and map it
         # into cartesian space, adding a slider in to explore different
-        # orientations 
-        Gs = np.zeros((M, N, P)) 
+        # orientations
+        Gs = np.zeros((M, N, P))
         X = np.zeros((M, N, P))
         Y = np.zeros((M, N, P))
         Z = np.zeros((M, N, P))
-        fig = make_subplots(rows=1, cols=3,
-                            subplot_titles=("Full", "Min", 'Max'),
-                            specs=[[{'type': 'surface'}]*3])
+        fig = make_subplots(
+            rows=1,
+            cols=3,
+            subplot_titles=("Full", "Min", "Max"),
+            specs=[[{"type": "surface"}] * 3],
+        )
         steps = []
         for k, psi in enumerate(psis):
             for i in range(M):
                 for j in range(N):
                     dij = _d(PHI[i, j], THETA[i, j])
-                    Gs[i, j, k] = self.Gij(dij, _n(PHI[i, j], 
-                                               THETA[i, j], 
-                                               psi*np.pi/180))
-                    X[i, j, k], Y[i, j, k], Z[i, j, k] = Gs[i, j, k]*dij
-            fig.add_trace(go.Surface(visible=False,
-                                     x=X[:, :, k], y=Y[:, :, k], z=Z[:, :, k], 
-                                     surfacecolor=Gs[:, :, k],
-                                     customdata=Gs[:, :, k],
-                                     hovertemplate="%{customdata[0]:.4f}",
-                                     coloraxis="coloraxis"),
-                                     row=1, col=1)
-            
-            step = dict(
-                        method="update",
-                        args=[{"visible": [False]*P + [True]*2},
-                            {"title": f"Angle: {psi}°"}],  # layout attribute
+                    Gs[i, j, k] = self.Gij(
+                        dij, _n(PHI[i, j], THETA[i, j], psi * np.pi / 180)
                     )
+                    X[i, j, k], Y[i, j, k], Z[i, j, k] = Gs[i, j, k] * dij
+            fig.add_trace(
+                go.Surface(
+                    visible=False,
+                    x=X[:, :, k],
+                    y=Y[:, :, k],
+                    z=Z[:, :, k],
+                    surfacecolor=Gs[:, :, k],
+                    customdata=Gs[:, :, k],
+                    hovertemplate="%{customdata[0]:.4f}",
+                    coloraxis="coloraxis",
+                ),
+                row=1,
+                col=1,
+            )
+
+            step = dict(
+                method="update",
+                args=[
+                    {"visible": [False] * P + [True] * 2},
+                    {"title": f"Angle: {psi}°"},
+                ],  # layout attribute
+            )
             step["args"][0]["visible"][k] = True  # Toggle i'th trace to "visible"
             steps.append(step)
         # Make initial trace visible
         fig.data[0].visible = True
 
         # Definet the normal vector slider
-        sliders = [dict(
-            active=0,
-            currentvalue={"prefix": "Angle: "},
-            pad={"t": 50},
-            steps=steps
-        )]    
-        
+        sliders = [
+            dict(
+                active=0, currentvalue={"prefix": "Angle: "}, pad={"t": 50}, steps=steps
+            )
+        ]
 
         # Plot the min and max G fields
         minargs = np.expand_dims(np.argmin(Gs, axis=2), axis=2)
         maxargs = np.expand_dims(np.argmax(Gs, axis=2), axis=2)
-        for i, inds in zip(range(2, 4), 
-                                 [minargs, maxargs]):
-            Xext = np.take_along_axis(X, inds, axis=2)[:, :, 0] 
-            Yext = np.take_along_axis(Y, inds, axis=2)[:, :, 0] 
-            Zext = np.take_along_axis(Z, inds, axis=2)[:, :, 0] 
-            Gext = np.take_along_axis(Gs, inds, axis=2)[:, :, 0] 
-            
-            fig.add_trace(go.Surface(x=Xext, y=Yext, z=Zext, 
-                                     surfacecolor=Gext,
-                                     customdata=Gext,
-                                     hovertemplate="%{customdata[0]:.4f}",
-                                     coloraxis="coloraxis"),
-                                     row=1, col=i)
+        for i, inds in zip(range(2, 4), [minargs, maxargs]):
+            Xext = np.take_along_axis(X, inds, axis=2)[:, :, 0]
+            Yext = np.take_along_axis(Y, inds, axis=2)[:, :, 0]
+            Zext = np.take_along_axis(Z, inds, axis=2)[:, :, 0]
+            Gext = np.take_along_axis(Gs, inds, axis=2)[:, :, 0]
 
+            fig.add_trace(
+                go.Surface(
+                    x=Xext,
+                    y=Yext,
+                    z=Zext,
+                    surfacecolor=Gext,
+                    customdata=Gext,
+                    hovertemplate="%{customdata[0]:.4f}",
+                    coloraxis="coloraxis",
+                ),
+                row=1,
+                col=i,
+            )
 
         # Plot the geometry
-        fig.update_traces(contours_x=dict(show=True, usecolormap=True,
-                                        highlightcolor="limegreen", project_x=True),
-                        contours_y=dict(show=True, usecolormap=True,
-                                        highlightcolor="limegreen", project_y=True),
-                        contours_z=dict(show=True, usecolormap=True,
-                                        highlightcolor="limegreen", project_z=True))
-        
-        fig.update_layout(
-            sliders=sliders
+        fig.update_traces(
+            contours_x=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_x=True
+            ),
+            contours_y=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_y=True
+            ),
+            contours_z=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_z=True
+            ),
         )
-        
+
+        fig.update_layout(sliders=sliders)
+
         return fig
 
     def Gext(self):
-        """ Calculate the extreme values for the shear modulus """
+        """Calculate the extreme values for the shear modulus"""
 
         return _ijext(self.Gij)
 
@@ -1070,12 +1141,12 @@ class ElasticHomogenization(Homogenization):
         #     d = _d(phi, theta)
         #     n = _n(phi, theta, psi)
         #     out[name] = dict(value=sign*sol['fun'], d=d, n=n)
-        
+
         # return out
 
         # # Pull out the compliance tensor
         # St = self.SHtensor
-        
+
         # #  Run jit compliled function
         # outmin, outmax = _Gext(St)
 
@@ -1084,8 +1155,8 @@ class ElasticHomogenization(Homogenization):
         #             min=dict(value=outmin[0], d=outmin[1], n=outmin[2]))
 
     def nuij(self, *args):
-        """ Calculate the poissons ratio in a specific orientation 
-        
+        """Calculate the poissons ratio in a specific orientation
+
         Arguments
         ---------
         d: length 3 array-like
@@ -1115,25 +1186,26 @@ class ElasticHomogenization(Homogenization):
         ----
         The C matrix calculated in this homogenization process is
         different than the C matrix defined in the below reference.
-        
+
         References
         ----------
         Nordmann, J., Aßmus, M., & Altenbach, H. (2018). Visualising
         elastic anisotropy: theoretical background and computational
         implementation. Continuum Mechanics and Thermodynamics, 30(4),
-        689–708. https://doi.org/10.1007/s00161-018-0635-9 
-        
+        689–708. https://doi.org/10.1007/s00161-018-0635-9
+
         """
 
         return nuij(self.CH, *args)
+
     def nuext(self):
-        """ Calculate the extreme values for Poisson's ratio """
+        """Calculate the extreme values for Poisson's ratio"""
 
         return _ijext(self.nuij)
 
     @property
     def stressAmplification(self):
-        """ Local stress amplification matrix (6 x 6 x nel)
+        """Local stress amplification matrix (6 x 6 x nel)
 
         sig(x, y) = A*sig_mean(x)
 
@@ -1150,19 +1222,19 @@ class ElasticHomogenization(Homogenization):
         return self.C @ (self.strainAmplification @ self.SH)
 
     def localStress(self, averageStress):
-        """ Calculate the local stress based on the average stress 
-        
+        """Calculate the local stress based on the average stress
+
         Arguments
         ---------
         averageStress: len(6) or 6xN array-like
             Average stress at the macroscopic scale for N load cases.
-        
+
         Returns
         -------
         nel x 6 x N array containing the elemental stresses within the unit
         cell
         """
-        
+
         # Make sure the input is an array
         averageStress = np.array(averageStress)
 
@@ -1175,39 +1247,39 @@ class ElasticHomogenization(Homogenization):
         averageStress = averageStress.reshape((self.N, -1))
 
         # sig(x, y) = A*sig_0(x)
-        return (self.stressAmplification @ averageStress)
-    
+        return self.stressAmplification @ averageStress
+
     def localVMStress(self, averageStress):
-        """ Calculate the local von mises stress based on the average stress 
-        
+        """Calculate the local von mises stress based on the average stress
+
         Arguments
         ---------
         averageStress: len(6) or 6xN array-like
             Average stress at the macroscopic scale for N different load cases.
-        
+
         Returns
         -------
         nel x N array containing the elemental von mises stresses within the unit
         cell
         """
-        
+
         # Calculate local stresses
         stresses = self.localStress(averageStress)
 
         # vm = sqrt(0.5 σ^T V2 σ)
-        vm2 = 0.5*(stresses * (V2[None, :, :] @ stresses)).sum(axis=1)
+        vm2 = 0.5 * (stresses * (V2[None, :, :] @ stresses)).sum(axis=1)
         return np.sqrt(vm2)
-        # return np.array(list(map(lambda x: np.sqrt(0.5*(x[0] @ x[1].T)), 
+        # return np.array(list(map(lambda x: np.sqrt(0.5*(x[0] @ x[1].T)),
         #                             zip(stresses.T, (V2 @ stresses).T))))
-    
+
     def localStrain(self, averageStrain):
-        """ Calculate the local strain based on the average strain 
-        
+        """Calculate the local strain based on the average strain
+
         Arguments
         ---------
         averageStrain: len(6) or 6x1 array-like
             Average strain at the macroscopic scale
-        
+
         Returns
         -------
         6 x nel array containing the elemental strains within the unit
@@ -1224,17 +1296,17 @@ class ElasticHomogenization(Homogenization):
 
         # eps(x, y) = A*eps_0(x)
         return (self.strainAmplification @ averageStrain).T
-    
+
     @timing(logger)
     def processWorstStress(self):
-        """ Determine the worst possible load orientation 
-        
-        
+        """Determine the worst possible load orientation
+
+
         Theory
         ------
         The von Mises calculation can be represented by the following
         calculation: sig_vm = sqrt(0.5 sig^T V^t V sig), where sig is the
-        6x1 stress state, 
+        6x1 stress state,
         V = [ 1 -1  0  0  0  0]
             [ 0  1 -1  0  0  0]
             [-1  0  1  0  0  0]
@@ -1245,7 +1317,6 @@ class ElasticHomogenization(Homogenization):
         """
 
         assert self.processed
-        
 
         # Calculate M = A^T V^T V A, where A is the stress amplification
         # matrix, which corresponds to the square of the local von mises
@@ -1257,7 +1328,7 @@ class ElasticHomogenization(Homogenization):
         # for i, subA in enumerate(A):
         #     # Calculate M
         #     M = subA.T @ V2 @ subA
-            
+
         #     # Solve the eigenvalue problem for each element
         #     lams, vs = np.linalg.eig(M)
 
@@ -1271,11 +1342,11 @@ class ElasticHomogenization(Homogenization):
         # return maxStresses, maxDirections
 
         return _worstStresses(A)
-     
+
     @property
     def anisotropyIndex(self):
-        """ Anisotropy index of the unit cell geometry 
-        
+        """Anisotropy index of the unit cell geometry
+
         Theory
         ------
         This metric comes from Ranganathan, S. I., & Ostoja-Starzewski,
@@ -1294,9 +1365,11 @@ class ElasticHomogenization(Homogenization):
             # Check to see if the result exists
             C = self.CH.copy()
         except AttributeError:
-            raise AttributeError("No existing homogenization results. "
-                               "Anisotropy index could not be "
-                               "calculated.")
+            raise AttributeError(
+                "No existing homogenization results. "
+                "Anisotropy index could not be "
+                "calculated."
+            )
 
         # Note that the below calculations correspond to the elasticity
         # matrix defined with respect to engineering shear strain, while
@@ -1313,33 +1386,35 @@ class ElasticHomogenization(Homogenization):
         S = np.linalg.inv(C)
 
         # Pull out relevant stiffness values
-        inds = [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], 
-                [5, 5], [0, 1], [1, 2], [2, 0]]
+        inds = [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [0, 1], [1, 2], [2, 0]]
         Is = [i[0] for i in inds]
         Js = [j[1] for j in inds]
         C11, C22, C33, C44, C55, C66, C12, C23, C31 = C[Is, Js]
         S11, S22, S33, S44, S55, S66, S12, S23, S31 = S[Is, Js]
 
         # Calculate the isotropy index
-        KV = (C11+C22+C33)+2*(C12+C23+C31)
+        KV = (C11 + C22 + C33) + 2 * (C12 + C23 + C31)
         KV /= 9
-        KR = 1/((S11+S22+S33)+2*(S12+S23+S31))
-        GV = (C11+C22+C33) - (C12+C23+C31) + 3*(C44+C55+C66)
+        KR = 1 / ((S11 + S22 + S33) + 2 * (S12 + S23 + S31))
+        GV = (C11 + C22 + C33) - (C12 + C23 + C31) + 3 * (C44 + C55 + C66)
         GV /= 15
-        GR = 15/(4*(S11+S22+S33) - 4*(S12+S23+S31) + 3*(S44+S55+S66))
-        AU = 5*GV/GR+KV/KR-6
+        GR = 15 / (
+            4 * (S11 + S22 + S33) - 4 * (S12 + S23 + S31) + 3 * (S44 + S55 + S66)
+        )
+        AU = 5 * GV / GR + KV / KR - 6
 
         return AU
-    
+
     # def saveResults(self):
     #     """ """
     #     assert self.processed
 
+
 class InternalHomogenization(object):
-    """ Parent homogenization class for internal calculations """
+    """Parent homogenization class for internal calculations"""
 
     KIND: str
-    mesh: str | Path 
+    mesh: str | Path
 
     # def __init__(self):
 
@@ -1356,13 +1431,13 @@ class InternalHomogenization(object):
 
     def meshQuality(self):
 
-        # The mesh quality for the voxel mesh is ideal. However, 
-        # very low density results may lead to bad stress/strain 
+        # The mesh quality for the voxel mesh is ideal. However,
+        # very low density results may lead to bad stress/strain
         # calculations, so define a mesh quality based on the element
         # density.
         with np.load(self.mesh) as data:
-            rhos = data['erhos']
-            einds = data['einds']
+            rhos = data["erhos"]
+            einds = data["einds"]
 
         # The quality here is defined as the element density offset by
         # 0.1.
@@ -1371,11 +1446,11 @@ class InternalHomogenization(object):
 
     @property
     def _resultfile(self):
-        """ Get result filename """
+        """Get result filename"""
         return self.path / Path(self.mesh.stem + "_" + self.KIND + "_results.npz")
 
     def check(self):
-        """ Check the status of previous simulation runs """
+        """Check the status of previous simulation runs"""
         logger.debug("Check status of previous simulations.")
         if self._resultfile.exists():
             logger.debug("Results file found.")
@@ -1385,79 +1460,103 @@ class InternalHomogenization(object):
             return False
 
     def cleanup(self):
-        """ Clean up results files """
+        """Clean up results files"""
 
         logger.debug("Cleaning up old results files.")
         basename = self._resultfile
-        for suffix in ['.npz', '.vtu']:
+        for suffix in [".npz", ".vtu"]:
             filename = basename.with_suffix(suffix)
             if filename.exists():
                 logger.debug(f"Removing old results file {filename}")
                 filename.unlink()
 
     @timing(logger)
-    def run(self, blocking=True, reuse=True, nprocessors=True, cases='all',
-            rtol=1e-6, atol=1e-8, solver='auto'):
+    def run(
+        self,
+        blocking=True,
+        reuse=True,
+        nprocessors=True,
+        cases="all",
+        rtol=1e-6,
+        atol=1e-8,
+        solver="auto",
+    ):
         logger.info(f"Running {self.KIND} homogenization simulations")
         # If reuse is specified, check to see if outputs already exist
         checks = self.check()
         if reuse:
             logger.info("Reuse of homogenization results requested.")
             if checks:
-                logger.info("All simulation result files exit and completed "
-                            " successfully. No need to run any additional "
-                            "simulations. Exiting early.")
+                logger.info(
+                    "All simulation result files exit and completed "
+                    " successfully. No need to run any additional "
+                    "simulations. Exiting early."
+                )
                 # p = subprocess.Popen("echo 'Process complete'",
                 # shell=True)
                 return True
             else:
                 # Rerun all simulations
-                logger.info("No previous simulations or previous"
-                            "simulations failed. Running.")
+                logger.info(
+                    "No previous simulations or previous" "simulations failed. Running."
+                )
         else:
             # If not, clear out old files
             logger.info("Removing old files prior to new simulation runs.")
             self.cleanup()
-        
-            
+
         # Solvenecessary simulations
         try:
             C = np.copy(self.C)
-            if self.KIND == 'elastic':
+            if self.KIND == "elastic":
                 # Convert from tensorial stiffness matrix to engineering
                 C[:, 3:] /= 2
-            homogenization(self.mesh, C, 
-                            self._resultfile, rtol=rtol, atol=atol,
-                            parallel=nprocessors, solver=solver)
+            homogenization(
+                self.mesh,
+                C,
+                self._resultfile,
+                rtol=rtol,
+                atol=atol,
+                parallel=nprocessors,
+                solver=solver,
+            )
         except RuntimeError as ex:
             logger.error(f"{self.KIND} homogenization failed: {ex}")
             return False
 
         return True
 
-class InternalElasticHomogenization(InternalHomogenization, 
-                                    ElasticHomogenization):
-    """ Homogenization based on internal finite element analysis """
-    
+
+class InternalElasticHomogenization(InternalHomogenization, ElasticHomogenization):
+    """Homogenization based on internal finite element analysis"""
+
+    def cleanup(self):
+        # Call cleanup methods from both inhereting classes, as they each have their
+        # own unique results files
+        super(InternalHomogenization, self).cleanup()
+        super(ElasticHomogenization, self).cleanup()
+
     def preprocess(self):
         # Aggregate the homogenization data. There are a total of 6 runs
         # that are necessary for the elastic homogenization. Read in
         # each file and pull out the precomputed elasticity
-        # coefficients. 
+        # coefficients.
 
         # Check simulation results
         check = self.check()
         if not check:
-            text = ("The homogenization runs failed. Homogenization "
-                    "results cannot be processed.")
+            text = (
+                "The homogenization runs failed. Homogenization "
+                "results cannot be processed."
+            )
             logger.error(text)
             raise RuntimeError(text)
 
         # Read in the results
-        with np.load(self._resultfile.with_suffix('.npz')) as data:
-            CH = data['CH']
-            disps = np.array([data[f'xi{i+1}'] for i in range(self.N)])
-            epss = np.array([data[f'Bxi{i+1}'] for i in range(self.N)])
+        with np.load(self._resultfile.with_suffix(".npz")) as data:
+            CH = data["CH"]
+            disps = np.array([data[f"xi{i+1}"] for i in range(self.N)])
+            epss = np.array([data[f"Bxi{i+1}"] for i in range(self.N)])
 
         # Convert CH from engineer to tensorial shear strains
         CH[:, 3:] *= 2
@@ -1471,16 +1570,15 @@ class InternalElasticHomogenization(InternalHomogenization,
         # Store displacement data as nnodes x 3 x 6 matrix
         self.displacements = np.transpose(disps, (2, 0, 1))
 
-class ConductanceHomogenization(Homogenization):
-    """ Linear conductance homogenization 
-    
-    """
 
-    KIND = 'conductance'
+class ConductanceHomogenization(Homogenization):
+    """Linear conductance homogenization"""
+
+    KIND = "conductance"
     N = 3
 
     def __init__(self, mesh, k, **kwargs):
-        """ Conductance homogenization """
+        """Conductance homogenization"""
 
         # Check the constitutive input parameters
         assert k > 0, f"Thermal conductance must be greater than zero, not {k}"
@@ -1488,42 +1586,43 @@ class ConductanceHomogenization(Homogenization):
 
         # Run the super class constructor
         super().__init__(mesh, **kwargs)
-    
+
     def loadResults(self):
-        """ Load results file """
+        """Load results file"""
 
         # Run stock preprocessing
         self.preprocess()
-        
+
         # Load the results json file
-        with open(self.homogenizationFile, 'r') as f:
+        with open(self.homogenizationFile, "r") as f:
             result = json.load(f)
-        
+
         # Convert relevant lists to numpy arrays
-        result['CH'] = np.array(result['CH'])
+        result["CH"] = np.array(result["CH"])
         self.result = result
 
         # Pull out the homogenized elasticity matrix
-        self.CH = result['CH']
-        
+        self.CH = result["CH"]
+
         # Load in the material behavior
-        k = result['k']
+        k = result["k"]
         if not np.isclose(k, self.k):
-            logger.warning("The loaded results file does not correspond "
-                           "the to current conductance value k of "
-                           f"{self.k}. Overwriting this property with the "
-                           f"value corresponding to the results file: {k}.")
-                           
-                           
+            logger.warning(
+                "The loaded results file does not correspond "
+                "the to current conductance value k of "
+                f"{self.k}. Overwriting this property with the "
+                f"value corresponding to the results file: {k}."
+            )
+
         self.k = k
 
     @property
     def C(self):
-        """ Solid material isotropic conductance matrix """
-        return isotropicK(self.k)      
+        """Solid material isotropic conductance matrix"""
+        return isotropicK(self.k)
 
     def kext(self):
-        """ Calculate the extreme values for the conductance """
+        """Calculate the extreme values for the conductance"""
 
         # Calculate the eigenvalues and vectors of the conductance
         # matrix
@@ -1533,8 +1632,10 @@ class ConductanceHomogenization(Homogenization):
         minind = np.argmin(lams)
 
         # Export in a more readable format
-        return dict(max=dict(value=lams[maxind], d=ds[:, maxind]), 
-                min=dict(value=lams[minind], d=ds[:, minind]))
+        return dict(
+            max=dict(value=lams[maxind], d=ds[:, maxind]),
+            min=dict(value=lams[minind], d=ds[:, minind]),
+        )
 
     @timing(logger)
     def process(self, save=True, reuse=True, rtol=1e-3, check=True, **kwargs):
@@ -1545,24 +1646,23 @@ class ConductanceHomogenization(Homogenization):
 
         # Create a dictionary with all of the output data
         self.result = dict(CH=self.CH, k=self.k)
-        
+
         # # Calculate bounding engineering constants
         # Kext = self.Kext()
         # self.result['engineeringConstants'] = \
         #         dict(Kmax=Kext['max']['value'], Kmin=Kext['min']['value'])
-  
 
         # Save results if requested
         if save:
             # Save the data to a json file
-            with open(self.homogenizationFile, 'w') as f:
+            with open(self.homogenizationFile, "w") as f:
                 f.write(json.dumps(self.result, cls=NumpyEncoder, indent=2))
 
         return self.result
-    
+
     # def Ki(self, d):
-    #     """ Calculate the elastic modulus in a specific direction 
-        
+    #     """ Calculate the elastic modulus in a specific direction
+
     #     Arguments
     #     ---------
     #     d: length 3 array-like
@@ -1576,14 +1676,14 @@ class ConductanceHomogenization(Homogenization):
     #     ----
     #     The C matrix calculated in this homogenization process is
     #     different than the C matrix defined in the below reference.
-        
+
     #     References
     #     ----------
     #     Nordmann, J., Aßmus, M., & Altenbach, H. (2018). Visualising
     #     elastic anisotropy: theoretical background and computational
     #     implementation. Continuum Mechanics and Thermodynamics, 30(4),
-    #     689–708. https://doi.org/10.1007/s00161-018-0635-9 
-        
+    #     689–708. https://doi.org/10.1007/s00161-018-0635-9
+
     #     """
 
     #     assert len(d) == 3, "Input direction vector must be length 3"
@@ -1599,7 +1699,7 @@ class ConductanceHomogenization(Homogenization):
     #     dv[3:] *= np.sqrt(2)
 
     #     return (1/(dv.T @ S @ dv))[0, 0]
-    
+
     # def Kext(self):
     #     """ Calculate the extreme values for the elastic modulus """
 
@@ -1610,11 +1710,11 @@ class ConductanceHomogenization(Homogenization):
     #     outmin, outmax = _Eext(St)
 
     #     # Export in a more readable format
-    #     return dict(max=dict(value=outmax[0], d=outmax[1]), 
+    #     return dict(max=dict(value=outmax[0], d=outmax[1]),
     #             min=dict(value=outmin[0], d=outmin[1]))
 
     #     # return _iext(self.Ei)
-        
+
     # def plotK(self):
     #     """ Plot 3D variation of elastic modulus """
 
@@ -1623,10 +1723,10 @@ class ConductanceHomogenization(Homogenization):
     #     M = int(N/2)
     #     PHI, THETA = np.meshgrid(np.linspace(0, np.pi, N),
     #                              np.linspace(0, 2*np.pi, M))
-        
+
     #     # Calculate the elastic modulus at each grid point and map it
     #     # into cartesian space
-    #     E = np.zeros((M, N)) 
+    #     E = np.zeros((M, N))
     #     X = np.zeros((M, N))
     #     Y = np.zeros((M, N))
     #     Z = np.zeros((M, N))
@@ -1635,7 +1735,7 @@ class ConductanceHomogenization(Homogenization):
     #             dij = _d(PHI[i, j], THETA[i, j])
     #             E[i, j] = self.Ei(dij)
     #             X[i, j], Y[i, j], Z[i, j] = E[i, j]*dij
-        
+
     #     # Plot the geometry
     #     surface = go.Surface(x=X, y=Y, z=Z, surfacecolor=E)
     #     fig = go.Figure(data=surface)
@@ -1647,29 +1747,39 @@ class ConductanceHomogenization(Homogenization):
     #                                     highlightcolor="limegreen", project_z=True))
     #     fig.show()
 
-class InternalConductanceHomogenization(InternalHomogenization,
-                                        ConductanceHomogenization):
-    """ Conductance homogenization based on internal finite element analysis """
-    
+
+class InternalConductanceHomogenization(
+    InternalHomogenization, ConductanceHomogenization
+):
+    """Conductance homogenization based on internal finite element analysis"""
+
+    def cleanup(self):
+        # Call cleanup methods from both inhereting classes, as they each have their
+        # own unique results files
+        super(InternalHomogenization, self).cleanup()
+        super(ConductanceHomogenization, self).cleanup()
+
     def preprocess(self):
         # Aggregate the homogenization data. There are a total of 6 runs
         # that are necessary for the elastic homogenization. Read in
         # each file and pull out the precomputed elasticity
-        # coefficients. 
+        # coefficients.
 
         # Check simulation results
         check = self.check()
         if not check:
-            text = ("The homogenization runs failed. Homogenization "
-                    "results cannot be processed.")
+            text = (
+                "The homogenization runs failed. Homogenization "
+                "results cannot be processed."
+            )
             logger.error(text)
             raise RuntimeError(text)
 
         # Read in the results
-        with np.load(self._resultfile.with_suffix('.npz')) as data:
-            CH = data['CH']
-            temps = np.array([data[f'xi{i+1}'] for i in range(self.N)])
-            fluxes = np.array([data[f'Bxi{i+1}'] for i in range(self.N)])
+        with np.load(self._resultfile.with_suffix(".npz")) as data:
+            CH = data["CH"]
+            temps = np.array([data[f"xi{i+1}"] for i in range(self.N)])
+            fluxes = np.array([data[f"Bxi{i+1}"] for i in range(self.N)])
 
         # Store result
         self.CH = CH
@@ -1685,7 +1795,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     np.set_printoptions(precision=4)
     mesh = Path(__file__).parent.parent / "mesh/tests/test.npz"
-    reuse=False
+    reuse = False
     # mesh = Path("Database/graph/Diamond/L4_350_W4_350_H4_080_T0_3000/unitcellMesh.npz")
     h = InternalElasticHomogenization(mesh, 1, 0.3)
     # h = InternalConductanceHomogenization(mesh, 1)
@@ -1724,11 +1834,3 @@ if __name__ == "__main__":
     #     [0.007033, 0.0009924, 0.01455, -4.217e-05, -0.002701, -0.0002137],
     #     [0.009217, 0.003668, 0.01677, 7.126e-05, -0.00148, -0.0001881],
     # ]).T
-
-
-
-
-
-    
-
-

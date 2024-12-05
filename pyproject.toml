@@ -1,7 +1,7 @@
 [project]
 name = "unitcellengine"
 description = "Lattice unitcell geometry and analysis framework"
-version = "0.0.9"
+version = "0.0.10-dev8"
 readme = "README.md"
 requires-python = ">=3.10, <3.12"
 license = {file = "LICENSE"}
@@ -25,9 +25,9 @@ dependencies = [
     "pyvista>=0.44.1",
     "scikit-image>=0.24.0",
     "scipy>=1.14.1",
-    "sdf",
     "tables>=3.10.1",
     "trimesh>=4.5.1",
+    "unitcellsdf>=0.0.2",
     "vtk>=9.3.1",
 ]
 
@@ -35,8 +35,8 @@ dependencies = [
 "Homepage" = "https://github.com/unitcellhub/unitcellengine"
 "Bug Reports" = "https://github.com/unitcellhub/unitcellengine/issues"
 
-[tool.uv.sources]
-sdf = { git = "https://github.com/fogleman/sdf", rev = "main" }
+[tool.hatch.metadata]
+allow-direct-references = true
 
 # This is needed to properly set the path for the pytest framework
 # https://stackoverflow.com/questions/50155464/using-pytest-with-a-src-layer
@@ -44,7 +44,7 @@ sdf = { git = "https://github.com/fogleman/sdf", rev = "main" }
 pythonpath = ["src"]
 
 [tool.bumpversion]
-current_version = "0.0.9"
+current_version = "0.0.10-dev8"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
     (?P<minor>0|[1-9]\\d*)\\.
@@ -74,7 +74,7 @@ pre_commit_hooks = ["uv sync", "git add uv.lock"]
 commit_args = ""
 
 [tool.bumpversion.parts.pre_l]
-values = ["dev", "rc", "final"]
+values = ["dev", "final"]
 optional_value = "final"
 
 [[tool.bumpversion.files]]
