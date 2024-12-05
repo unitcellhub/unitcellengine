@@ -74,7 +74,7 @@ pre_commit_hooks = ["uv sync", "git add uv.lock"]
 commit_args = ""
 
 [tool.bumpversion.parts.pre_l]
-values = ["dev", "rc", "final"]
+values = ["dev", "final"]
 optional_value = "final"
 
 [[tool.bumpversion.files]]
