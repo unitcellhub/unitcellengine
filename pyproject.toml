@@ -35,9 +35,6 @@ dependencies = [
 "Homepage" = "https://github.com/unitcellhub/unitcellengine"
 "Bug Reports" = "https://github.com/unitcellhub/unitcellengine/issues"
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
 # This is needed to properly set the path for the pytest framework
 # https://stackoverflow.com/questions/50155464/using-pytest-with-a-src-layer
 [tool.pytest.ini_options]
