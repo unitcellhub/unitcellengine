@@ -314,25 +314,27 @@ def _isolve(i):
     # Define preconditioner
     # @TODO This is kind of an expensive process that can be shared
     # across all processes. So, it should probably be precomputed and
-    # then shared rather than computed within each process
+    # then shared rather than computed within each process. Unfortunately,
+    # these preconditioners are hard to serialize and map using pythons
+    # multiprocess infrastructure.
     # M = sp.sparse.diags(1/K.diagonal()) # Jacobi preconditioner for iterative solver
     # M = ilupp.IChol0Preconditioner(K.tocsc())
     # Monkey patch for Windows which doesn't support float128
     # See https://github.com/pyamg/pyamg/issues/273
     if not hasattr(np, "float128"):
         np.float128 = np.longdouble  # #698
-    M = pyamg.smoothed_aggregation_solver(K, B=B).aspreconditioner()
+    M = pyamg.smoothed_aggregation_solver(K, B=B, smooth='energy').aspreconditioner()
 
     # Setup iteration history callback function
     it = 0
 
     def callback(xk):
         nonlocal it
-        if it % 20 == 0:
+        if it % 5 == 0:
             logger.debug(f"Case {i}/Iteration {it}: {np.linalg.norm(K@xk-F[:,i])}")
         it += 1
 
-    return cg(K, F[:, i], M=M, tol=rtol, atol=atol, callback=callback)
+    return cg(K, F[:, i], M=M, rtol=rtol, atol=atol, callback=callback)
 
 
 # def elasticHomogenization(mesh, E, nu, filename=None,
@@ -350,7 +352,7 @@ def homogenization(
     C,
     filename=None,
     solver="auto",
-    parallel=True,
+    parallel=False,
     rtol=1e-6,
     atol=1e-8,
 ):
@@ -472,7 +474,7 @@ def homogenization(
             (KE.flatten("F")[np.newaxis]).T * (1e-4 + (subrhos) * (1 - 1e-4))
         ).flatten(order="F")
         K = coo_matrix((sK, (iK, jK)), shape=(ndof, ndof)).tocsc()
-        K = deleterowcol(K, remove, remove)
+        K = deleterowcol(K, remove, remove).tocsr()
 
     # Assemble homogenization load cases
     # Here, the elements with partial density are scaled linearly
@@ -570,7 +572,8 @@ def homogenization(
                 # loading the data in (ex: Array(ctypes.c_longdouble,
                 # K.data, lock=False)) as this is incredibly slow because
                 # the data is copied over element by element. You can load
-                # the data is a faster way later.
+                # the data in a faster way later.
+                K = K.tocoo()
                 sK = Array(ctypes.c_longdouble, K.data.shape[0], lock=False)
                 iK = Array(ctypes.c_int64, K.row.shape[0], lock=False)
                 jK = Array(ctypes.c_int64, K.col.shape[0], lock=False)
@@ -644,7 +647,7 @@ def homogenization(
                 # Generate multigrid preconditioner. This has been found
                 # to be much more efficient than Jacobi and iLU
                 # preconditioners.
-                ml = pyamg.smoothed_aggregation_solver(K.tocsr(), B=B)
+                ml = pyamg.smoothed_aggregation_solver(K.tocsr(), B=B, smooth='energy')
                 M = ml.aspreconditioner()
 
                 for i in range(CASES):
@@ -653,7 +656,7 @@ def homogenization(
 
                     def callback(xk):
                         nonlocal it
-                        if it % 20 == 0:
+                        if it % 5 == 0:
                             logger.debug(
                                 f"Case {i}/Iteration {it}: {np.linalg.norm(K@xk-F[free,i])}"
                             )
@@ -664,7 +667,7 @@ def homogenization(
                     ):
                         # Solve using a Conjugate Gradient iterative solver
                         u0, ecode = cg(
-                            K, F[free, i], M=M, tol=rtol, atol=atol, callback=callback
+                            K, F[free, i], M=M, rtol=rtol, atol=atol, callback=callback
                         )
                     if ecode == 0:
                         # If successful, store the solution array
@@ -819,11 +822,13 @@ if __name__ == "__main__":
     # Load mesh
     # mesh = Path("unitcell/mesh/tests/test.npz")
     # C = isotropicC(1, 0.35)
-    mesh = Path("Database/graph/Diamond/L4_350_W4_350_H4_080_T0_3000/unitcellMesh.npz")
+    # mesh = Path("Database/graph/Diamond/L4_350_W4_350_H4_080_T0_3000/unitcellMesh.npz")
+    mesh = Path("examples/Database/graph/Octet/L1_000_W1_000_H1_000_T0_1000/unitcellMesh.npz")
     C = isotropicC(1, 0.3)
 
-    # CH = homogenization(mesh, C, Path("test.npz"))
+    CH = homogenization(mesh, C, Path("test.npz"), solver='iterative', parallel=True)
 
+    print(CH)
     # # C = isotropicK(1)
     # # CH1 = homogenization(mesh, C,
     # #                     Path("unitcell/analysis/tests/test.npz"),
