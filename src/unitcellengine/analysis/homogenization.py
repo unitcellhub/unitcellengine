@@ -1475,7 +1475,7 @@ class InternalHomogenization(object):
         self,
         blocking=True,
         reuse=True,
-        nprocessors=True,
+        nprocessors=False,
         cases="all",
         rtol=1e-6,
         atol=1e-8,
