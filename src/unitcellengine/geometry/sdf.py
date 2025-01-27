@@ -2,7 +2,6 @@ import sys
 
 tmp = sys.path.pop(0)
 import sdf
-import sdf.d3 as d3
 from sdf.d2 import polygon, rectangle
 from sdf.d3 import box, capped_cylinder, op3, rounded_box
 
@@ -73,6 +72,26 @@ _GRAPH_PADDING["Triangular honeycomb"] = [1, 0, 0]
 #     """ Parallel processing worker for SDF evaluation """
 #     return sdf.f(points)
 
+def _tpms2sdf(phi, norm):
+    """ Convert standard implicit TPMS fields to approximate SDF fields """
+
+    # Because the gradient of the implicit function is zero on the
+    # surface, the gradient is zero and hence has a zero norm. Thee main problem
+    # here is that the zero values are calculated as very small numbers.
+    # By setting the phi field value to exactly 0 at these locations,
+    # The divide by a small number still yields a zero value.
+    # There are also some odd cases where the normal of the field gradient
+    # approaches zero but the field value is not zero. Here, we just set the value
+    # to the field value. @TODO There is likely a better way to do this.
+    indsPhiZero = np.isclose(phi, 0)
+    indsNormZero = np.isclose(norm, 0)
+    indsNotZero = np.logical_and(~indsPhiZero, indsNormZero)
+    out = np.zeros_like(phi)
+    out[indsPhiZero] = 0.
+    out = phi / norm
+    out[indsNotZero] = phi[indsNotZero]
+
+    return out
 
 @sdf.sdf3
 def _gyroid(L, W, H):
@@ -85,19 +104,14 @@ def _gyroid(L, W, H):
         phi0 = sin(X) * cos(Y) + sin(Y) * cos(Z) + sin(Z) * cos(X)
 
         # Calculate the gradient of the implicit function to convert to
-        # sign distance function
+        # sign distance function. Note that this is only approximate near
+        # the isosuface boundary.
         dphidx = PI2 / L * (cos(X) * cos(Y) - sin(Z) * sin(X))
         dphidy = PI2 / W * (cos(Y) * cos(Z) - sin(X) * sin(Y))
         dphidz = PI2 / H * (cos(Z) * cos(X) - sin(Y) * sin(Z))
         norm = np.sqrt(dphidx**2 + dphidy**2 + dphidz**2)
 
-        # Because the gradient of the implicit function is zero on the
-        # surface, the gradient is zero and hence hare a zero norm. So,
-        # replace all NaN with 0/
-        out = phi0 / norm
-        out[np.isnan(out)] = 0
-
-        return out
+        return _tpms2sdf(phi0, norm)
 
     return f
 
@@ -119,13 +133,7 @@ def _schwarz(L, W, H):
         dphidz = PI2 / H * sin(Z)
         norm = np.sqrt(dphidx**2 + dphidy**2 + dphidz**2)
 
-        # Because the gradient of the implicit function is zero on the
-        # surface, the gradient is zero and hence hare a zero norm. So,
-        # replace all NaN with 0
-        out = phi0 / norm
-        out[np.isnan(out)] = 0
-
-        return out
+        return _tpms2sdf(phi0, norm)
 
     return f
 
@@ -149,13 +157,7 @@ def _iwp(L, W, H):
         dphidz = PI2 / H * (-2 * sin(Z) * cos(X) - 2 * sin(Z) * cos(Y) + 2 * sin(2 * Z))
         norm = np.sqrt(dphidx**2 + dphidy**2 + dphidz**2)
 
-        # Because the gradient of the implicit function is zero on the
-        # surface, the gradient is zero and hence hare a zero norm. So,
-        # replace all NaN with 0/
-        out = phi / norm
-        out[np.isnan(out)] = 0
-
-        return out
+        return _tpms2sdf(phi, norm)
 
     return f
 
@@ -209,13 +211,7 @@ def _diamond(L, W, H):
         )
         norm = np.sqrt(dphidx**2 + dphidy**2 + dphidz**2)
 
-        # Because the gradient of the implicit function is zero on the
-        # surface, the gradient is zero and hence hare a zero norm. So,
-        # replace all NaN with 0/
-        out = phi / norm
-        out[np.isnan(out)] = 0
-
-        return out
+        return _tpms2sdf(phi, norm)
 
     return f
 
@@ -276,13 +272,7 @@ def _lidinoid(L, W, H):
         )
         norm = np.sqrt(dphidx**2 + dphidy**2 + dphidz**2)
 
-        # Because the gradient of the implicit function is zero on the
-        # surface, the gradient is zero and hence hare a zero norm. So,
-        # replace all NaN with 0/
-        out = phi / norm
-        out[np.isnan(out)] = 0
-
-        return out
+        return _tpms2sdf(phi, norm)
 
     return f
 
@@ -349,13 +339,7 @@ def _splitp(L, W, H):
         )
         norm = np.sqrt(dphidx**2 + dphidy**2 + dphidz**2)
 
-        # Because the gradient of the implicit function is zero on the
-        # surface, the gradient is zero and hence hare a zero norm. So,
-        # replace all NaN with 0/
-        out = phi / norm
-        out[np.isnan(out)] = 0
-
-        return out
+        return _tpms2sdf(phi, norm)
 
     return f
 
@@ -375,13 +359,7 @@ def _neovius(L, W, H):
         dphidz = PI2 / H * (-4 * sin(Z) * cos(X) * cos(Y) - 3 * sin(Z))
         norm = np.sqrt(dphidx**2 + dphidy**2 + dphidz**2)
 
-        # Because the gradient of the implicit function is zero on the
-        # surface, the gradient is zero and hence hare a zero norm. So,
-        # replace all NaN with 0/
-        out = phi / norm
-        out[np.isnan(out)] = 0
-
-        return out
+        return _tpms2sdf(phi, norm)
 
     return f
 
@@ -593,8 +571,8 @@ def _graph(unitcell):
             }
         if isinstance(faces, np.ndarray):
             faces = {
-                f"{i}": {f"n{n+1}": f"{v}" for n, v in enumerate(vs)}
-                for i, vs in enumerate(faces)
+                f"{i}": {f"n{n+1}": f"{v}" for n, v in enumerate(vs) if v >= 0}
+                for i, vs in enumerate(faces) 
             }
     except:
         raise ValueError(
@@ -1065,7 +1043,7 @@ class SDFGeometry(Geometry):
             if self.elementSize <= 0.5:
                 # Create an index array for the meshed grid
                 fullinds = np.arange(X.size).reshape((NY, NX, NZ), order="F")
-                values = np.ones((X.size, 3))
+                values = np.ones((X.size, 1))
 
                 # Check that the sampling grid is finer than the coarse
                 # sampling
@@ -1140,7 +1118,7 @@ class SDFGeometry(Geometry):
             else:
                 logger.debug("Fine sampling over all points.")
                 values = func(points)
-            grid["scalars"] = values
+            grid["scalars"] = values[:, 0]
             # fig.show()
 
         # Return the field clipped at the geometry boundary
@@ -1152,7 +1130,8 @@ class SDFGeometry(Geometry):
         #                            bounds=((-L/2, -W/2, -H/2),
         #                                    (L/2, W/2, H/2)))
 
-        return clip
+        return grid
+        # return clip
 
     def exportImage(self, save=False, size=[800, 800]):
 
@@ -1285,10 +1264,10 @@ if __name__ == "__main__":
         elementSize=0.5,
         form="graph",
     )
-    # design = SDFGeometry('Schwarz', 1, 1, 1,
-    #                      thickness=0.1, radius=0.25,
-    #                      directory=Path(__file__).parent/Path("tests"),
-    #                      elementSize=0.2, form="walledtpms")
+    design = SDFGeometry('Gyroid', 1, 1, 1,
+                         thickness=0.1, radius=0.25,
+                         directory=Path(__file__).parent/Path("tests"),
+                         elementSize=0.25, form="walledtpms")
     design.run(reuse=False, export=True)
     # print(design.relativeDensity, design.relativeSurfaceArea)
     # design.postprocess()
@@ -1316,6 +1295,8 @@ if __name__ == "__main__":
     # pr = cProfile.Profile()
     # pr.enable()
     geom = design.visualizeVTK(1, 1, 1)
+    # geom.plot()
+    geom.save("test.vtk")
     print(design)
     # pr.disable()
     # pr.dump_stats("profile.profile")
