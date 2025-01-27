@@ -380,9 +380,9 @@ def homogenization(
         will be saved.
     solver: "direct", "iterative" or "auto" (default = "auto")
         Linear solver to use to solve finite element problem
-    parallel: boolean or int > 0 (default is True)
+    parallel: boolean or int > 0 (default is False)
         When using the "iterative" *solver", run all processes in
-        parallel if True, don't run in parallel if false, and use
+        parallel if True, don't run in parallel if False, and use
         *parallel* processors if an integer. Note, there are no benefits
         to using more than the number of subcases in the homogenization
         (for example, for elastic homogenization, there is no benefit to
@@ -466,12 +466,14 @@ def homogenization(
 
     # Assemble the full stiffness matrix
     # Here, the elements with partial density are scaled linearly
-    # according to the density
+    # according to the density.
+    # @TODO Incorporate a more accurate immersed boundary method
+    scalingMin = 1e-8
     with Timing("Assemble stiffness matrix", logger):
         iK = np.tile(subpe2dof, DOF_EL).flatten()
         jK = np.tile(subpe2dof.flatten(), (DOF_EL, 1)).flatten("F")
         sK = (
-            (KE.flatten("F")[np.newaxis]).T * (1e-4 + (subrhos) * (1 - 1e-4))
+            (KE.flatten("F")[np.newaxis]).T * (scalingMin + (subrhos) * (1 - scalingMin))
         ).flatten(order="F")
         K = coo_matrix((sK, (iK, jK)), shape=(ndof, ndof)).tocsc()
         K = deleterowcol(K, remove, remove).tocsr()
@@ -481,7 +483,7 @@ def homogenization(
     # according to the density
     with Timing("Assembly homogenization body loads", logger):
         sF = (
-            (FE.flatten("F")[np.newaxis]).T * (1e-4 + (subrhos) * (1 - 1e-4))
+            (FE.flatten("F")[np.newaxis]).T * (scalingMin + (subrhos) * (1 - scalingMin))
         ).flatten(order="F")
         iF = np.tile(subpe2dof, CASES).flatten()
         jF = np.tile(
