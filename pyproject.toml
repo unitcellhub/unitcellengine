@@ -86,6 +86,7 @@ replace = "version = \"{new_version}\""
 
 [dependency-groups]
 dev = [
+    "ipykernel>=6.29.5",
     "jupyter>=1.1.1",
     "pytest>=8.3.3",
     "python-dotenv>=1.0.1",
