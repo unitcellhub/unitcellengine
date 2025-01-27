@@ -36,4 +36,5 @@ tests/geometry/resources/unitcellDefinition.json
 tests/geometry/resources/unitcellProperties.json
 unitcell/mesh/tests/test.npz
 unitcell/mesh/tests/test_elastic_homogenization.json
-unitcell/mesh/tests/test_elastic_results.npz
+unitcell/mesh/tests/test_elastic_results.np
+**/Database
