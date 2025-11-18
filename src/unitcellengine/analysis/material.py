@@ -283,9 +283,6 @@ def nuij(C, *args):
         assert np.isclose(np.inner(d, n), 0), "Normal vector must be " +\
                                             "perpendicular to the " +\
                                             "direction vector."
-        # Make sure vectors are unit vectors
-        d = np.array(d)/np.linalg.norm(d)
-        n = np.array(n)/np.linalg.norm(n)
     elif len(args) == 3:
         phi, theta, psi = args
         assert 0 <= phi <= np.pi, "Phi must be between 0 and pi, not" +\

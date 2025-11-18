@@ -1184,8 +1184,17 @@ class ElasticHomogenization(Homogenization):
 
         Note
         ----
-        The C matrix calculated in this homogenization process is
-        different than the C matrix defined in the below reference.
+        - The C matrix calculated in this homogenization process is
+          different than the C matrix defined in the below reference.
+        - Unlike the Poisson's ratio for isotropic materials, the
+          anisotropic Poisson's ratios are not limited to the range
+          of [-1, 0.5]. In the case of anistropic materials, the
+          limitations are defined by positive definiteness of the
+          strain energy density and the inherant relationship between
+          reciprocal Poisson's ratios
+            1) 1 - nu12*nu21 - nu23*nu32 - nu13*nu31 - 2*nu12*nu23*nu31 > 0
+            2) |nu_ij| < sqrt(Eii/Ejj)
+          See "Poisson's ratio bounds in orthotropic materials.
 
         References
         ----------
