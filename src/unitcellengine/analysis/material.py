@@ -193,6 +193,11 @@ def Gij(C, *args):
     implementation. Continuum Mechanics and Thermodynamics, 30(4),
     689–708. https://doi.org/10.1007/s00161-018-0635-9 
     
+    Böhlke and Brüggemann (2019). Graphical Representation of the 
+    Generalized Hooke’s Law. Technische Mechanik - European 
+    Journal of Engineering Mechanics, 21(2), 145-158.
+    https://journals.ub.ovgu.de/index.php/techmech/article/view/1045
+    
     """
 
     if len(args) == 2:
@@ -255,6 +260,8 @@ def nuij(C, *args):
 
     Theory
     ------
+    Poisson’s ratio in direction n under stretch in direction d
+    ν(d, n) = - εn/εd
     ν(d, n) = -((d ⨂ d) : S : (n ⨂ n))/((d ⨂ d) : S : (d ⨂ d))
 
     d = [sin(φ)cos(θ),sin(φ)sin(θ),cos(φ)]
@@ -262,10 +269,16 @@ def nuij(C, *args):
             -cos(θ)sin(ψ)-cos(φ)sin(θ)cos(ψ)
             sin(φ)cos(ψ)]
 
+    
+            
     Note
     ----
-    The C matrix calculated in this homogenization process is
-    different than the C matrix defined in the below reference.
+    - The C matrix calculated in this homogenization process is
+      different than the C matrix defined in the below reference.
+    - There are two nomenclatures for orthotropic Poisson's ratio
+      and they are used across the literature:
+      - νij = -εi/εj (which is equivalent to νnd = -εn/εd)
+      - νij = -εj/εi (which is equivalent to νdn = -εn/εd) (more common)
     
     References
     ----------
@@ -273,6 +286,11 @@ def nuij(C, *args):
     elastic anisotropy: theoretical background and computational
     implementation. Continuum Mechanics and Thermodynamics, 30(4),
     689–708. https://doi.org/10.1007/s00161-018-0635-9 
+    
+    Böhlke and Brüggemann (2019). Graphical Representation of the 
+    Generalized Hooke’s Law. Technische Mechanik - European 
+    Journal of Engineering Mechanics, 21(2), 145-158.
+    https://journals.ub.ovgu.de/index.php/techmech/article/view/1045
     
     """
 
